@@ -1,0 +1,20 @@
+# secrets
+backend/secrets/*.json
+backend/.env
+.env
+
+# python
+backend/.venv/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+backend/staticfiles/
+backend/media/
+
+# node
+frontend/node_modules/
+frontend/dist/
+
+# editor/OS
+.DS_Store
+Thumbs.db
