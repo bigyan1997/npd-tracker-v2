@@ -72,7 +72,10 @@ def _apply_fields(product, data):
             if not value:
                 setattr(product, key, None)
             elif isinstance(value, str):
-                setattr(product, key, date.fromisoformat(value))
+                try:
+                    setattr(product, key, date.fromisoformat(value))
+                except ValueError:
+                    raise ValidationError(f"{field['label']} must be a valid date (YYYY-MM-DD).")
             else:
                 setattr(product, key, value)
         elif field["type"] == "number":
