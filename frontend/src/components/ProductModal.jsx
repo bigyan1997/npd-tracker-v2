@@ -39,6 +39,11 @@ export function ProductModal({
 
   const setValue = (key, value) => setValues((v) => ({ ...v, [key]: value }))
 
+  // Only relevant when creating a new product (isEdit === false) — files
+  // picked before the product exists are staged here and uploaded by the
+  // caller (App.jsx) right after the product is actually created.
+  const [pendingImages, setPendingImages] = useState({ product: [], nutrition: [] })
+
   const queryClient = useQueryClient()
   const suppliersQuery = useQuery({ queryKey: ['suppliers'], queryFn: fetchSuppliers })
   const addSupplierMutation = useMutation({
@@ -161,27 +166,31 @@ export function ProductModal({
               </div>
             </div>
               ))}
-              {isEdit && (
-                <div>
-                  <div className="mt-5.5 mb-2.5 border-b-2 border-[#f0e2d0] pb-1.5 text-[11px] font-bold tracking-wide text-clay uppercase">
-                    Photos
-                  </div>
-                  <div className="grid grid-cols-2 gap-5">
-                    <ProductImageGallery
-                      productId={record.id}
-                      category="product"
-                      label="Product Photos"
-                      images={record.images}
-                    />
-                    <ProductImageGallery
-                      productId={record.id}
-                      category="nutrition"
-                      label="Nutrition Label Photos"
-                      images={record.images}
-                    />
-                  </div>
+              <div>
+                <div className="mt-5.5 mb-2.5 border-b-2 border-[#f0e2d0] pb-1.5 text-[11px] font-bold tracking-wide text-clay uppercase">
+                  Photos
                 </div>
-              )}
+                <div className="grid grid-cols-2 gap-5">
+                  <ProductImageGallery
+                    productId={isEdit ? record.id : null}
+                    category="product"
+                    label="Product Photos"
+                    images={record?.images}
+                    onPendingChange={
+                      isEdit ? undefined : (files) => setPendingImages((p) => ({ ...p, product: files }))
+                    }
+                  />
+                  <ProductImageGallery
+                    productId={isEdit ? record.id : null}
+                    category="nutrition"
+                    label="Nutrition Label Photos"
+                    images={record?.images}
+                    onPendingChange={
+                      isEdit ? undefined : (files) => setPendingImages((p) => ({ ...p, nutrition: files }))
+                    }
+                  />
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -213,7 +222,7 @@ export function ProductModal({
                 Cancel
               </button>
               <button
-                onClick={() => onSave(values)}
+                onClick={() => onSave(values, isEdit ? undefined : pendingImages)}
                 disabled={saving}
                 className="rounded-md bg-clay px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-[#9c5518]"
               >

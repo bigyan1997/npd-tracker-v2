@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { logout, me } from './api/auth'
+import { uploadProductImage } from './api/images'
 import { createProduct, deleteProduct, fetchProducts, updateProduct } from './api/products'
 import { fetchSchema } from './api/schema'
 import { DeletedProductsModal } from './components/DeletedProductsModal'
@@ -85,11 +86,28 @@ function MainApp({ username }) {
   const invalidateProducts = () => queryClient.invalidateQueries({ queryKey: ['products'] })
 
   const createMutation = useMutation({
-    mutationFn: createProduct,
-    onSuccess: () => {
+    mutationFn: async ({ data, images }) => {
+      const product = await createProduct(data)
+      let failedUploads = 0
+      for (const category of ['product', 'nutrition']) {
+        for (const file of images?.[category] ?? []) {
+          try {
+            await uploadProductImage(product.id, category, file)
+          } catch {
+            failedUploads += 1
+          }
+        }
+      }
+      return { product, failedUploads }
+    },
+    onSuccess: ({ failedUploads }) => {
       invalidateProducts()
       setModalOpen(false)
-      show('Product added.')
+      if (failedUploads > 0) {
+        show(`Product added, but ${failedUploads} photo${failedUploads === 1 ? '' : 's'} failed to upload.`, true)
+      } else {
+        show('Product added.')
+      }
     },
     onError: (err) => setModalError(err?.response?.data?.detail ?? 'Save failed.'),
   })
@@ -133,7 +151,7 @@ function MainApp({ username }) {
     setModalOpen(true)
   }
 
-  const handleSave = (data) => {
+  const handleSave = (data, images) => {
     const missing = (schemaQuery.data?.fields ?? [])
       .filter((f) => f.required && f.type !== 'yn' && !String(data[f.key] ?? '').trim())
       .map((f) => f.label)
@@ -145,7 +163,7 @@ function MainApp({ username }) {
     if (editingRecord) {
       updateMutation.mutate({ id: editingRecord.id, data })
     } else {
-      createMutation.mutate(data)
+      createMutation.mutate({ data, images })
     }
   }
 

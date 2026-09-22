@@ -2,18 +2,37 @@ import { useState } from 'react'
 import { deleteProductImage, uploadProductImage } from '../api/images'
 import { ConfirmDialog } from './ConfirmDialog'
 
-export function ProductImageGallery({ productId, category, label, images }) {
+// When productId is null (a not-yet-saved new product), selected files are
+// staged locally — previewed via an object URL, not actually uploaded —
+// since there's no product to attach them to yet. The parent (ProductModal)
+// is notified of the staged file list via onPendingChange and uploads them
+// itself once the product has been created.
+export function ProductImageGallery({ productId, category, label, images, onPendingChange }) {
+  const isPending = !productId
   const [localImages, setLocalImages] = useState(() =>
     (images || []).filter((img) => img.category === category),
   )
+  const [pendingFiles, setPendingFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
+  const setPending = (next) => {
+    setPendingFiles(next)
+    onPendingChange?.(next.map((p) => p.file))
+  }
+
   const handleFiles = async (fileList) => {
     const files = Array.from(fileList || [])
     if (files.length === 0) return
+
+    if (isPending) {
+      const additions = files.map((file) => ({ file, previewUrl: URL.createObjectURL(file) }))
+      setPending([...pendingFiles, ...additions])
+      return
+    }
+
     setUploading(true)
     setUploadError(null)
     try {
@@ -26,6 +45,10 @@ export function ProductImageGallery({ productId, category, label, images }) {
     } finally {
       setUploading(false)
     }
+  }
+
+  const removePending = (index) => {
+    setPending(pendingFiles.filter((_, i) => i !== index))
   }
 
   const handleDelete = async () => {
@@ -44,19 +67,33 @@ export function ProductImageGallery({ productId, category, label, images }) {
     <div className="flex flex-col gap-2">
       <label className="text-[11.5px] font-semibold text-[#6b6656]">{label}</label>
       <div className="flex flex-wrap gap-2">
-        {localImages.map((img) => (
-          <div key={img.id} className="group relative h-20 w-20 overflow-hidden rounded-md border border-line">
-            <img src={img.image} alt="" className="h-full w-full object-cover" />
-            <button
-              type="button"
-              title="Delete image"
-              onClick={() => setDeleteTarget(img)}
-              className="absolute top-0.5 right-0.5 rounded bg-[rgba(30,40,35,.55)] px-1 text-[11px] text-white opacity-0 group-hover:opacity-100"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
+        {isPending
+          ? pendingFiles.map((p, i) => (
+              <div key={i} className="group relative h-20 w-20 overflow-hidden rounded-md border border-line">
+                <img src={p.previewUrl} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  title="Remove"
+                  onClick={() => removePending(i)}
+                  className="absolute top-0.5 right-0.5 rounded bg-[rgba(30,40,35,.55)] px-1 text-[11px] text-white opacity-0 group-hover:opacity-100"
+                >
+                  ✕
+                </button>
+              </div>
+            ))
+          : localImages.map((img) => (
+              <div key={img.id} className="group relative h-20 w-20 overflow-hidden rounded-md border border-line">
+                <img src={img.image} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  title="Delete image"
+                  onClick={() => setDeleteTarget(img)}
+                  className="absolute top-0.5 right-0.5 rounded bg-[rgba(30,40,35,.55)] px-1 text-[11px] text-white opacity-0 group-hover:opacity-100"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
         <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-line bg-[#fdfcf9] text-[11px] text-off hover:bg-[#f5f3ea]">
           {uploading ? 'Uploading…' : '+ Add'}
           <input
@@ -72,6 +109,9 @@ export function ProductImageGallery({ productId, category, label, images }) {
           />
         </label>
       </div>
+      {isPending && pendingFiles.length > 0 && (
+        <div className="text-[11px] text-off">Photos will be uploaded after you save.</div>
+      )}
       {uploadError && <div className="text-[11.5px] font-semibold text-[#a13a2c]">{uploadError}</div>}
       {deleteTarget && (
         <ConfirmDialog

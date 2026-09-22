@@ -90,11 +90,15 @@ class Product(models.Model):
 
 def product_image_upload_path(instance, filename):
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
-    code = "PI" if instance.category == "product" else "NI"
+    if instance.category == "product":
+        code, folder = "PI", "product_images"
+    else:
+        code, folder = "NI", "nutritional_images"
     product_name = _slugify_for_filename(instance.product.product if instance.product_id else "")
     date_str = timezone.now().strftime("%Y%m%d")
     unique = uuid.uuid4().hex[:6]  # avoids overwriting a same-day second upload for this product/category
-    return f"products/{instance.product_id}/{instance.category}/{product_name}_{code}_{date_str}_{unique}.{ext}"
+    product_folder = f"{product_name}_{instance.product_id}"
+    return f"{folder}/{product_folder}/{product_name}_{code}_{date_str}_{unique}.{ext}"
 
 
 class ProductImage(models.Model):
