@@ -17,6 +17,9 @@ from . import drive_client
 from .fields_schema import STATUS_CHOICES
 from .models import Product, ProductImage, Supplier
 
+# Never touch the real Google Sheet mirror from tests (.env sets its ID).
+NO_SHEETS = override_settings(NPD_SHEET_ID="")
+
 
 def jpeg_bytes(color="red", size=(1200, 800)):
     out = io.BytesIO()
@@ -86,6 +89,7 @@ class FakeDrive:
         return self.upload(folder_id, name, content or jpeg_bytes("blue"), "image/jpeg")["id"]
 
 
+@NO_SHEETS
 class DrivePhotoTests(TestCase):
     def setUp(self):
         self.media = tempfile.mkdtemp()
@@ -201,6 +205,7 @@ class DrivePhotoTests(TestCase):
         self.assertFalse(ProductImage.objects.exists())
 
 
+@NO_SHEETS
 class SupplierRenameTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("staff", "staff@example.com", "pw")
@@ -244,6 +249,7 @@ class SupplierRenameTests(TestCase):
         self.assertEqual(self.acme.name, "Acme Foods")
 
 
+@NO_SHEETS
 class EditConflictTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("staff", "staff@example.com", "pw")
@@ -289,3 +295,24 @@ class EditConflictTests(TestCase):
         res = self.api.get("/api/version/")
         self.assertEqual(res.status_code, 200)
         self.assertIn("version", res.data)
+
+
+class SheetsRowTests(TestCase):
+    def client_without_network(self):
+        from .sheets_client import SheetsClient
+
+        return SheetsClient.__new__(SheetsClient)  # skip __init__ (no Google credentials)
+
+    def test_drive_folder_becomes_a_link(self):
+        from . import fields_schema as schema
+
+        url = "https://drive.google.com/drive/folders/abc123"
+        row = self.client_without_network().row_to_array({"_id": "7", "imagesLocation": url})
+        cell = row[1 + schema.FIELD_KEYS.index("imagesLocation")]
+        self.assertEqual(cell, f'=HYPERLINK("{url}", "Open photos folder")')
+
+    def test_typed_formula_is_still_neutralised(self):
+        from . import fields_schema as schema
+
+        row = self.client_without_network().row_to_array({"_id": "7", "imagesLocation": '=HYPERLINK("x")'})
+        self.assertEqual(row[1 + schema.FIELD_KEYS.index("imagesLocation")], "'=HYPERLINK(\"x\")")

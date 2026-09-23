@@ -77,7 +77,14 @@ def _ensure_folders_locked(product, client, verify):
     Product.objects.filter(pk=product.pk).update(**ids)
     for k, v in ids.items():
         setattr(product, k, v)
+    _push_to_sheet(product)  # the Sheet's photos column now has a folder to link to
     return product
+
+
+def _push_to_sheet(product):
+    from . import services, sheets_sync  # local: services imports this module
+
+    sheets_sync.push_product(product, services._snapshot_dict(product))
 
 
 def upsert_from_drive(product, category, meta, uploaded_by=None):

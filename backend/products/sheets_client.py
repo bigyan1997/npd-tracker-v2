@@ -23,6 +23,8 @@ def _col_letter(n):
 
 LAST_COL = _col_letter(len(schema.FIELDS) + 1 + len(TRACKING_COLUMNS))
 
+DRIVE_FOLDER_PREFIX = "https://drive.google.com/drive/folders/"
+
 
 class SheetsClient:
     def __init__(self):
@@ -94,6 +96,11 @@ class SheetsClient:
         values = [record["_id"]]
         for key in schema.FIELD_KEYS:
             value = record.get(key, "") or ""
+            if key == "imagesLocation" and value.startswith(DRIVE_FOLDER_PREFIX):
+                # Our own Drive folder link (never user input) — a clickable
+                # link, so it deliberately bypasses the formula guard below.
+                values.append(f'=HYPERLINK("{value}", "Open photos folder")')
+                continue
             if value:
                 is_date = schema.FIELDS_BY_KEY[key]["type"] == "date"
                 # Force literal text so Sheets doesn't (a) auto-convert dates into

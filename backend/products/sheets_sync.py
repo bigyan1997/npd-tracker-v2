@@ -20,6 +20,7 @@ from django.conf import settings
 from django.db import close_old_connections
 from django.utils import timezone
 
+from . import drive_client
 from .sheets_client import SheetsClient
 
 logger = logging.getLogger(__name__)
@@ -73,13 +74,19 @@ def _push_product_sync(product, snapshot):
         record = _record_from_snapshot(product.pk, snapshot)
         if product.last_edited_by:
             record["lastEditedBy"] = product.last_edited_by.get_username()
+        from .models import Product  # local import to avoid a module-load cycle
+
+        # The photos column links to the product's Drive folder once it has
+        # one (read fresh: the folder may have been created after `product`
+        # was loaded). The typed legacy path stays in Postgres untouched.
+        folder_id = Product.objects.filter(pk=product.pk).values_list("drive_folder_id", flat=True).first()
+        if folder_id:
+            record["imagesLocation"] = drive_client.folder_url(folder_id)
         row_number = client.find_row_by_record_id(product.pk)
         if row_number:
             client.update_row(row_number, record)
         else:
             client.append_row(record)
-        from .models import Product  # local import to avoid a module-load cycle
-
         Product.objects.filter(pk=product.pk).update(sheet_row_synced_at=timezone.now())
     except Exception:
         logger.exception("Sheets push failed for product %s", product.pk)
