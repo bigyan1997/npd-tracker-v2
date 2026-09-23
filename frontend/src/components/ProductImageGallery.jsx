@@ -23,6 +23,7 @@ export function ProductImageGallery({ productId, category, label, images, folder
   const [uploadError, setUploadError] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const setPending = (next) => {
     setPendingFiles(next)
@@ -60,10 +61,13 @@ export function ProductImageGallery({ productId, category, label, images, folder
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
+    setDeleteError(null)
     try {
       await deleteProductImage(productId, deleteTarget.id)
       setLocalImages((prev) => prev.filter((img) => img.id !== deleteTarget.id))
       setDeleteTarget(null)
+    } catch (err) {
+      setDeleteError(err?.response?.data?.detail ?? 'Could not delete photo.')
     } finally {
       setDeleting(false)
     }
@@ -135,10 +139,14 @@ export function ProductImageGallery({ productId, category, label, images, folder
       {uploadError && <div className="text-[11.5px] font-semibold text-[#a13a2c]">{uploadError}</div>}
       {deleteTarget && (
         <ConfirmDialog
-          title="Delete image?"
-          message="This photo will be removed. This can't be undone."
+          title="Delete photo?"
+          message="This photo will also be deleted from Google Drive (it can be restored from the Drive Bin for 30 days). Do you want to continue?"
+          errorMessage={deleteError}
           confirming={deleting}
-          onCancel={() => setDeleteTarget(null)}
+          onCancel={() => {
+            setDeleteTarget(null)
+            setDeleteError(null)
+          }}
           onConfirm={handleDelete}
         />
       )}

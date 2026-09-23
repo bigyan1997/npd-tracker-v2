@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { fetchProductImages } from '../api/images'
 import { fetchProductHistory } from '../api/products'
 import { createSupplier, deleteSupplier, fetchSuppliers } from '../api/suppliers'
+import { ConfirmDialog } from './ConfirmDialog'
 import { DynamicField } from './DynamicField'
 import { ProductImageGallery } from './ProductImageGallery'
 
@@ -22,6 +23,7 @@ export function ProductModal({
 }) {
   const isEdit = Boolean(record)
   const [view, setView] = useState('form')
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [values, setValues] = useState(() => {
     const initial = {}
     schema.fields.forEach((f) => {
@@ -219,7 +221,7 @@ export function ProductModal({
             <>
               {isEdit && (
                 <button
-                  onClick={onDelete}
+                  onClick={() => setConfirmDelete(true)}
                   disabled={deleting}
                   className="rounded-md border border-[#e0bdb0] bg-white px-3.5 py-2 text-[13px] font-semibold text-[#a13a2c] hover:bg-[#fbeae5]"
                 >
@@ -244,6 +246,17 @@ export function ProductModal({
           )}
         </div>
       </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete product?"
+          message={`Delete "${record?.product || '(untitled)'}"? Its photo folder will also be deleted from Google Drive (it can be restored from the Drive Bin for 30 days). Do you want to continue?`}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            setConfirmDelete(false)
+            onDelete()
+          }}
+        />
+      )}
     </div>
   )
 }

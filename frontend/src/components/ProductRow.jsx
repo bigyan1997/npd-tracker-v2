@@ -158,7 +158,7 @@ export function ProductRow({ row, columns, beforeCount, pipelineFields, onOpen, 
       {confirmOpen && (
         <ConfirmDialog
           title="Delete product?"
-          message={`Delete "${row.product || '(untitled)'}"? This cannot be undone.`}
+          message={`Delete "${row.product || '(untitled)'}"? Its photo folder will also be deleted from Google Drive (it can be restored from the Drive Bin for 30 days). Do you want to continue?`}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={() => {
             setConfirmOpen(false)
