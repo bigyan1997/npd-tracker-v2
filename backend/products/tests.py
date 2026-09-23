@@ -316,3 +316,33 @@ class SheetsRowTests(TestCase):
 
         row = self.client_without_network().row_to_array({"_id": "7", "imagesLocation": '=HYPERLINK("x")'})
         self.assertEqual(row[1 + schema.FIELD_KEYS.index("imagesLocation")], "'=HYPERLINK(\"x\")")
+
+
+class SheetsHeaderTests(TestCase):
+    def fake_client(self, existing_header):
+        from .sheets_client import SheetsClient
+
+        client = SheetsClient.__new__(SheetsClient)  # no Google credentials / network
+        client.sheet_id, client.tab = "sheet", "NPD"
+        client.service = mock.MagicMock()
+        sheets = client.service.spreadsheets.return_value
+        sheets.get.return_value.execute.return_value = {"sheets": [{"properties": {"title": "NPD"}}]}
+        sheets.values.return_value.get.return_value.execute.return_value = {"values": [existing_header]}
+        return client, sheets.values.return_value
+
+    def test_stale_header_is_rewritten_and_leftovers_cleared(self):
+        from .sheets_client import HEADER_ROW
+
+        old = HEADER_ROW[:-3] + ["Create Product into Qblue"] + HEADER_ROW[-3:]
+        client, values = self.fake_client(old)
+        client.ensure_tab_and_header()
+        values.clear.assert_called_once()
+        self.assertEqual(values.update.call_args.kwargs["body"], {"values": [HEADER_ROW]})
+
+    def test_current_header_is_left_alone(self):
+        from .sheets_client import HEADER_ROW
+
+        client, values = self.fake_client(list(HEADER_ROW))
+        client.ensure_tab_and_header()
+        values.clear.assert_not_called()
+        values.update.assert_not_called()

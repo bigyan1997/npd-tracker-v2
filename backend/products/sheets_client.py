@@ -24,6 +24,8 @@ def _col_letter(n):
 LAST_COL = _col_letter(len(schema.FIELDS) + 1 + len(TRACKING_COLUMNS))
 
 DRIVE_FOLDER_PREFIX = "https://drive.google.com/drive/folders/"
+# How far right to look for / clear leftover columns from an older layout.
+EXTRA_COLS_END = _col_letter(len(HEADER_ROW) + 20)
 
 
 class SheetsClient:
@@ -53,13 +55,23 @@ class SheetsClient:
                 body={"requests": [{"addSheet": {"properties": {"title": self.tab}}}]},
             ).execute()
 
+        # Read past LAST_COL too: a header left over from an older field list
+        # can be longer than the current one.
         check = self._values.get(
             spreadsheetId=self.sheet_id,
-            range=f"{self.tab}!A1:{LAST_COL}1",
+            range=f"{self.tab}!A1:{EXTRA_COLS_END}1",
         ).execute()
         rows = check.get("values", [])
-        has_header = bool(rows and rows[0] and rows[0][0])
-        if not has_header:
+        current = rows[0] if rows else []
+        if current != HEADER_ROW:
+            # Fields were added/renamed/removed since the header was written —
+            # rewrite it, or every column after the change sits under the
+            # wrong heading. Columns past the end only hold leftovers from
+            # the old layout, so clear them.
+            self._values.clear(
+                spreadsheetId=self.sheet_id,
+                range=f"{self.tab}!{_col_letter(len(HEADER_ROW) + 1)}1:{EXTRA_COLS_END}",
+            ).execute()
             self._values.update(
                 spreadsheetId=self.sheet_id,
                 range=f"{self.tab}!A1:{LAST_COL}1",

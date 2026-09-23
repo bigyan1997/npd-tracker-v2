@@ -38,7 +38,7 @@ def _configured():
 def _record_from_snapshot(product_id, snapshot):
     record = {"_id": str(product_id), **snapshot}
     record["lastEditedBy"] = ""
-    record["lastEditedAt"] = timezone.now().isoformat()
+    record["lastEditedAt"] = timezone.localtime().strftime("%Y-%m-%d %H:%M")  # Sydney time
     return record
 
 
