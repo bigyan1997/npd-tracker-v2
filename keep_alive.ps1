@@ -23,6 +23,9 @@ function Write-Log($message) {
 }
 
 if (Test-App) { exit 0 }
+# A deploy in progress restarts the server itself (auto_deploy.ps1).
+$deployLock = Join-Path $logDir 'auto_deploy.lock'
+if ((Test-Path $deployLock) -and ((Get-Date) - (Get-Item $deployLock).LastWriteTime).TotalMinutes -lt 30) { exit 0 }
 Start-Sleep -Seconds 20  # might just be starting up / momentarily busy
 if (Test-App) { exit 0 }
 

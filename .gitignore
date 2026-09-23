@@ -16,6 +16,7 @@ backend/logs/
 # node
 frontend/node_modules/
 frontend/dist/
+frontend/dist-next/
 
 # editor/OS
 .DS_Store
