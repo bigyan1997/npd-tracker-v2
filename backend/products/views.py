@@ -1,6 +1,7 @@
 import logging
 import mimetypes
 
+from django.conf import settings
 from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -220,6 +221,24 @@ class ProductImageFileView(APIView):
         # URLs carry ?v=<modified time>, so a changed photo gets a new URL.
         response["Cache-Control"] = "private, max-age=604800"
         return response
+
+
+class QuickLinksView(APIView):
+    """Header shortcuts: the Google Sheet mirror and the Drive photos folder."""
+
+    def get(self, request):
+        sheet = (
+            f"https://docs.google.com/spreadsheets/d/{settings.NPD_SHEET_ID}/edit"
+            if settings.NPD_SHEET_ID
+            else None
+        )
+        photos = None
+        if drive_client.enabled():
+            try:
+                photos = drive_client.folder_url(DriveClient().root_folder_id())
+            except Exception:
+                logger.exception("Couldn't look up the Drive photos folder")
+        return Response({"sheet": sheet, "photos": photos})
 
 
 class SuppliersView(APIView):

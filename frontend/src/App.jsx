@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { logout, me } from './api/auth'
 import { uploadProductImage } from './api/images'
+import { fetchLinks } from './api/links'
 import { createProduct, deleteProduct, fetchProducts, updateProduct } from './api/products'
 import { fetchSchema } from './api/schema'
 import { DeletedProductsModal } from './components/DeletedProductsModal'
@@ -47,6 +48,7 @@ function MainApp({ username }) {
   const [sortDir, setSortDir] = useState('asc')
 
   const schemaQuery = useQuery({ queryKey: ['schema'], queryFn: fetchSchema })
+  const linksQuery = useQuery({ queryKey: ['links'], queryFn: fetchLinks, staleTime: Infinity })
   const productsQuery = useQuery({
     queryKey: ['products', { search, status, active }],
     queryFn: () => fetchProducts({ search, status, active }),
@@ -201,7 +203,7 @@ function MainApp({ username }) {
 
   return (
     <div className="min-h-screen bg-paper">
-      <TopBar username={username} onLogout={() => logoutMutation.mutate()} />
+      <TopBar username={username} links={linksQuery.data} onLogout={() => logoutMutation.mutate()} />
       <div className="px-7 py-5.5 pb-15">
         {schemaQuery.data && <StageBar statusOptions={statusOptions} rows={productsQuery.data ?? []} />}
         <Toolbar

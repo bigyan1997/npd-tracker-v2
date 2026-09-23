@@ -8,6 +8,7 @@ from .views import (
     ProductImageFileView,
     ProductImageUploadView,
     ProductViewSet,
+    QuickLinksView,
     RestoreProductView,
     SuppliersView,
 )
@@ -18,6 +19,7 @@ router.register("products", ProductViewSet, basename="product")
 urlpatterns = [
     path("schema/", SchemaView.as_view(), name="schema"),
     path("suppliers/", SuppliersView.as_view(), name="suppliers"),
+    path("links/", QuickLinksView.as_view(), name="quick-links"),
     # Must come before the router's products/<pk>/ pattern, which would
     # otherwise swallow "deleted" as if it were a product id.
     path("products/deleted/", DeletedProductsView.as_view(), name="deleted-products"),
