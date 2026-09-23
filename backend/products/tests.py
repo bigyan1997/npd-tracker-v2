@@ -319,7 +319,7 @@ class SheetsRowTests(TestCase):
 
 
 class SheetsHeaderTests(TestCase):
-    def fake_client(self, existing_header):
+    def fake_client(self, existing_header, grid_cols=100):
         from .sheets_client import SheetsClient
 
         client = SheetsClient.__new__(SheetsClient)  # no Google credentials / network
@@ -327,7 +327,10 @@ class SheetsHeaderTests(TestCase):
         client.service = mock.MagicMock()
         sheets = client.service.spreadsheets.return_value
         sheets.get.return_value.execute.return_value = {
-            "sheets": [{"properties": {"title": "NPD", "sheetId": 0}}, {"properties": {"title": "Search", "sheetId": 9}}]
+            "sheets": [
+                {"properties": {"title": "NPD", "sheetId": 0, "gridProperties": {"columnCount": grid_cols}}},
+                {"properties": {"title": "Search", "sheetId": 9}},
+            ]
         }
         sheets.values.return_value.get.return_value.execute.return_value = {"values": [existing_header]}
         return client, sheets.values.return_value
@@ -344,6 +347,18 @@ class SheetsHeaderTests(TestCase):
         search_write = values.update.call_args_list[1].kwargs
         self.assertTrue(search_write["range"].startswith("Search!"))
         self.assertIn("FILTER('NPD'!A2:", search_write["body"]["values"][4][0])
+
+    def test_new_field_widens_grid_without_clearing(self):
+        from .sheets_client import HEADER_ROW
+
+        old = HEADER_ROW[:-1]  # one column shorter, grid exactly as wide as the old header
+        client, values = self.fake_client(old, grid_cols=len(old))
+        client.ensure_tab_and_header()
+        # (the Search tab is cleared and rebuilt; the data tab must not be)
+        self.assertFalse([c for c in values.clear.call_args_list if c.kwargs["range"].startswith("NPD!")])
+        widen = client.service.spreadsheets.return_value.batchUpdate.call_args_list[0].kwargs["body"]
+        self.assertEqual(widen["requests"][0]["appendDimension"]["length"], 1)
+        self.assertEqual(values.update.call_args_list[0].kwargs["body"], {"values": [HEADER_ROW]})
 
     def test_current_header_is_left_alone(self):
         from .sheets_client import HEADER_ROW

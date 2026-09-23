@@ -32,6 +32,7 @@ class Product(models.Model):
     active = models.BooleanField(default=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name="products")
     supplierProductName = models.CharField(max_length=255, blank=True)
+    plannedLaunch = models.TextField(blank=True)
 
     # Sampling & Tasting
     sampleReceived = models.DateField(null=True, blank=True)

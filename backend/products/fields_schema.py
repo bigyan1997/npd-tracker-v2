@@ -83,6 +83,8 @@ FIELDS = [
     {"key": "supplierProductName", "dashboard": True, "label": "Supplier product name (if different to ACP product name)",
      "type": "text", "section": "Overview"},
     {"key": "imagesNote", "dashboard": True, "label": "Note about images", "type": "text", "section": "Sampling & Tasting"},
+    {"key": "plannedLaunch", "dashboard": True, "label": "Planned Launch", "type": "textarea", "section": "Overview",
+     "placeholder": "e.g. target launch month, channels, promo plans"},
 ]
 
 FIELDS_BY_KEY = {f["key"]: f for f in FIELDS}

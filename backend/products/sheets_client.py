@@ -58,9 +58,20 @@ class SheetsClient:
             (s for s in meta["sheets"] if s["properties"]["title"] == self.tab), None
         )
         if sheet is None:
-            self.service.spreadsheets().batchUpdate(
+            reply = self.service.spreadsheets().batchUpdate(
                 spreadsheetId=self.sheet_id,
                 body={"requests": [{"addSheet": {"properties": {"title": self.tab}}}]},
+            ).execute()
+            sheet = reply["replies"][0]["addSheet"]
+        # A new field can make the header wider than the grid — Sheets
+        # refuses writes past its last column, so add columns first.
+        grid = sheet["properties"].get("gridProperties", {})
+        missing_cols = len(HEADER_ROW) - grid.get("columnCount", len(HEADER_ROW))
+        if missing_cols > 0:
+            self.service.spreadsheets().batchUpdate(
+                spreadsheetId=self.sheet_id,
+                body={"requests": [{"appendDimension": {
+                    "sheetId": sheet["properties"]["sheetId"], "dimension": "COLUMNS", "length": missing_cols}}]},
             ).execute()
 
         # Read past LAST_COL too: a header left over from an older field list
@@ -75,11 +86,13 @@ class SheetsClient:
             # Fields were added/renamed/removed since the header was written —
             # rewrite it, or every column after the change sits under the
             # wrong heading. Columns past the end only hold leftovers from
-            # the old layout, so clear them.
-            self._values.clear(
-                spreadsheetId=self.sheet_id,
-                range=f"{self.tab}!{_col_letter(len(HEADER_ROW) + 1)}1:{EXTRA_COLS_END}",
-            ).execute()
+            # the old layout, so clear them (only if there are any: Sheets
+            # rejects a range that starts beyond the grid).
+            if len(current) > len(HEADER_ROW):
+                self._values.clear(
+                    spreadsheetId=self.sheet_id,
+                    range=f"{self.tab}!{_col_letter(len(HEADER_ROW) + 1)}1:{_col_letter(len(current))}",
+                ).execute()
             self._values.update(
                 spreadsheetId=self.sheet_id,
                 range=f"{self.tab}!A1:{LAST_COL}1",

@@ -6,7 +6,7 @@ import { ProductRow } from './ProductRow'
 // edit form / admin), and any listed field that's no longer flagged
 // "dashboard" in the schema is automatically dropped.
 const BEFORE_PIPELINE = ['date', 'product', 'supplier', 'status', 'active']
-const AFTER_PIPELINE = ['imagesLocation', 'nutritionalsReceived', 'nutritionalsACP', 'cost']
+const AFTER_PIPELINE = ['imagesLocation', 'nutritionalsReceived', 'nutritionalsACP', 'cost', 'plannedLaunch']
 
 export function ProductTable({ rows, fields, filtered, onClearFilters, sortKey, sortDir, onSort, onOpen, onDelete }) {
   const dashboardByKey = new Map(fields.filter((f) => f.dashboard && !f.pipeline).map((f) => [f.key, f]))
