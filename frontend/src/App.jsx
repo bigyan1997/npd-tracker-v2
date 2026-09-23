@@ -5,9 +5,9 @@ import { uploadProductImage } from './api/images'
 import { fetchLinks } from './api/links'
 import { createProduct, deleteProduct, fetchProduct, fetchProducts, updateProduct } from './api/products'
 import { fetchSchema } from './api/schema'
+import { fetchSuppliers } from './api/suppliers'
 import { PHOTO_FILTERS, photoCounts } from './lib/photos'
 import { DeletedProductsModal } from './components/DeletedProductsModal'
-import { ImportModal } from './components/ImportModal'
 import { LoginPage } from './components/LoginPage'
 import { ProductModal } from './components/ProductModal'
 import { ProductTable } from './components/ProductTable'
@@ -64,6 +64,7 @@ function MainApp({ username }) {
   const { toast, show } = useToast()
 
   const [search, setSearch] = useState('')
+  const [supplier, setSupplier] = useState('')
   const [status, setStatus] = useState('')
   const [active, setActive] = useState('')
   const [photos, setPhotos] = useState('')
@@ -71,16 +72,16 @@ function MainApp({ username }) {
   const [editingRecord, setEditingRecord] = useState(null)
   const [modalError, setModalError] = useState(null)
   const [modalConflict, setModalConflict] = useState(false)
-  const [importModalOpen, setImportModalOpen] = useState(false)
   const [deletedModalOpen, setDeletedModalOpen] = useState(false)
   const [sortKey, setSortKey] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
 
   const schemaQuery = useQuery({ queryKey: ['schema'], queryFn: fetchSchema })
   const linksQuery = useQuery({ queryKey: ['links'], queryFn: fetchLinks, staleTime: Infinity })
+  const suppliersQuery = useQuery({ queryKey: ['suppliers'], queryFn: fetchSuppliers })
   const productsQuery = useQuery({
-    queryKey: ['products', { search, status, active }],
-    queryFn: () => fetchProducts({ search, status, active }),
+    queryKey: ['products', { search, status, active, supplier }],
+    queryFn: () => fetchProducts({ search, status, active, supplier }),
     enabled: Boolean(schemaQuery.data),
     // Everyone shares one login on several devices — keep the list current
     // without a manual refresh. Open edit forms aren't affected.
@@ -112,9 +113,10 @@ function MainApp({ username }) {
     })
   }, [productsQuery.data, schemaQuery.data, sortKey, sortDir, photos])
 
-  const isFiltered = Boolean(search.trim() || status || active || photos)
+  const isFiltered = Boolean(search.trim() || supplier || status || active || photos)
   const clearFilters = () => {
     setSearch('')
+    setSupplier('')
     setStatus('')
     setActive('')
     setPhotos('')
@@ -234,36 +236,6 @@ function MainApp({ username }) {
     }
   }
 
-  const handleExport = () => {
-    if (!schemaQuery.data || !productsQuery.data) return
-    const fields = schemaQuery.data.fields
-    const header = ['RecordID', ...fields.map((f) => f.label)]
-    const csvRows = [
-      header,
-      ...productsQuery.data.map((r) => [
-        r.id,
-        ...fields.map((f) => (f.type === 'yn' ? (r[f.key] ? 'Y' : 'N') : r[f.key] || '')),
-      ]),
-    ]
-    const csv = csvRows
-      .map((row) =>
-        row
-          .map((cell) => {
-            const s = String(cell ?? '')
-            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-          })
-          .join(','),
-      )
-      .join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `npd-tracker-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   if (schemaQuery.isLoading) return null
 
   return (
@@ -275,6 +247,9 @@ function MainApp({ username }) {
         <Toolbar
           search={search}
           onSearchChange={setSearch}
+          supplier={supplier}
+          onSupplierChange={setSupplier}
+          suppliers={suppliersQuery.data ?? []}
           status={status}
           onStatusChange={setStatus}
           active={active}
@@ -282,8 +257,6 @@ function MainApp({ username }) {
           photos={photos}
           onPhotosChange={setPhotos}
           statusOptions={statusOptions}
-          onExport={handleExport}
-          onImport={() => setImportModalOpen(true)}
           onShowDeleted={() => setDeletedModalOpen(true)}
           onAdd={openNew}
         />
@@ -330,18 +303,6 @@ function MainApp({ username }) {
           onSaveAnyway={() =>
             updateMutation.mutate({ id: editingRecord.id, data: updateMutation.variables.data, force: true })
           }
-        />
-      )}
-
-      {importModalOpen && (
-        <ImportModal
-          onClose={() => setImportModalOpen(false)}
-          onImported={(count, skipped) => {
-            invalidateProducts()
-            setImportModalOpen(false)
-            const skippedNote = skipped > 0 ? ` (${skipped} skipped — missing/invalid data)` : ''
-            show(`Imported ${count} product${count === 1 ? '' : 's'}.${skippedNote}`)
-          }}
         />
       )}
 

@@ -22,7 +22,7 @@ Backend verified end-to-end against real Postgres; 19 automated tests (`products
 
 ## Architecture decisions that differ from v1 (all deliberate)
 
-- **`yn`-type fields are real Postgres `BooleanField`s**, not Y/N strings. v1 used strings because Sheets cells are all strings — that constraint doesn't apply to Postgres. Booleans are translated to `"Y"`/`"N"` only at the CSV-export and Sheets-sync boundaries.
+- **`yn`-type fields are real Postgres `BooleanField`s**, not Y/N strings. v1 used strings because Sheets cells are all strings — that constraint doesn't apply to Postgres. Booleans are translated to `"Y"`/`"N"` only at the Sheets-sync boundary.
 - **`supplier` is a real foreign key** to a `Supplier` table (`on_delete=PROTECT`), not v1's free-text field with a soft curated list. The "type a new name inline and it gets created" UX is preserved via `get_or_create` in the service layer — this is a data-integrity upgrade, not a UX regression. Supplier delete-while-in-use protection is now a simple `Product.objects.filter(supplier=...).count()` query instead of v1's manual full-table scan.
 - **`status_changed_at`** is a real column on `Product`, updated only when the service layer detects the status field actually changed. Replaces v1's audit-log `Max(changed_at)` aggregate query for the "stuck in status" calculation (30-day threshold, excluding "Will NOT Be listed" and "Activated / Live") with a single indexed column read.
 - **The schema-driven UI architecture is kept from v1.** `backend/products/fields_schema.py` is still the single source of truth for field labels/sections/types/required/dashboard/pipeline flags, served via `GET /api/schema/`. The frontend's form and table are fully generic over it. **This means schema changes are pure backend edits — the frontend needs zero code changes to pick them up.** Confirmed working live multiple times already (pipeline chip renames, removing a field from the dashboard both took effect with no frontend touch).
@@ -55,7 +55,6 @@ Backend verified end-to-end against real Postgres; 19 automated tests (`products
 ## Known gaps / open items
 
 - Restoring a deleted product creates a new record with a new, empty photo folder — its old photos stay in the trashed folder in Drive's Bin (30 days) and have to be moved back by hand.
-- **CSV export** ignores the on-screen filters/sort and always comes out newest-date-first; the user was asked whether it should match the screen or go by Record ID — not decided yet.
 - **Checklist redesign proposed, not built**: replace the cryptic NR/NC/ZB/BI/BS/IW/B2B chips with a progress bar + "Next: …" column and a tick-box checklist card in the form. Waiting on the user to confirm the step order and whether the two B2B image steps are sequential or either/or. Also planned with it: warn when "Nutritionals Received" is ticked but no nutrition-label photo exists.
 - Filters set with the ▼ buttons on the Sheet are shared by everyone (one shared Google account).
 - After an unattended Windows restart the app is down until someone logs in (fix documented in `DEPLOYMENT_NOTES.md`; needs the Microsoft-account password).

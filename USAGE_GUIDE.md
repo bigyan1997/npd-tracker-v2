@@ -137,16 +137,7 @@ its photos don't come back automatically — restore the folder from the
 Google Drive Bin (within 30 days) and move the photos into the product's new
 folder.
 
-## 8. Importing and exporting
-
-- **Export CSV** — downloads the whole list as a file you can open in Excel.
-  (If a date column shows `#####` in Excel, just make the column wider.)
-- **Import CSV** — lets you add lots of products at once from a file. Click
-  it, choose your file, and the app will show you a preview first — so you
-  can check everything looks right before anything is actually saved. Tip:
-  click **Export CSV** first to get a file with the exact right columns.
-
-## 9. The Google Sheet
+## 8. The Google Sheet
 
 The **Google Sheet ↗** button opens a spreadsheet copy of every product that
 updates itself whenever something changes in the tracker.

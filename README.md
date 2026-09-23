@@ -207,8 +207,7 @@ row is rewritten automatically whenever it no longer matches.
 
 - **Products**: add/edit/delete with confirmation, restore recently deleted
   products, full field-level **History** per product, sortable columns,
-  "stuck in status" alerts (30+ days in a non-final status), CSV import
-  (preview first) and export.
+  "stuck in status" alerts (30+ days in a non-final status).
 - **Search & filters**: search across name, supplier and codes with a live
   "N products found" count; status, active and missing-photo filters.
 - **Suppliers**: autocomplete with add, **rename** (updates every product,

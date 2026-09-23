@@ -101,7 +101,7 @@ SEARCH_KEYS = [
 STATUS_CHOICES = [(opt, opt) for opt in FIELDS_BY_KEY["status"]["options"]]
 
 # Field keys whose UI type is "yn" — stored as BooleanField on the model,
-# translated to "Y"/"N" only at the CSV-export/Sheets-sync boundary.
+# translated to "Y"/"N" only at the Sheets-sync boundary.
 YN_FIELD_KEYS = [f["key"] for f in FIELDS if f["type"] == "yn"]
 
 STUCK_DAYS_THRESHOLD = 30

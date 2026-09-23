@@ -118,12 +118,14 @@ def _snapshot_dict(product):
     return snapshot
 
 
-def list_products(search="", status="", active=""):
+def list_products(search="", status="", active="", supplier=""):
     qs = Product.objects.select_related("supplier").prefetch_related("images")
     if status:
         qs = qs.filter(status=status)
     if active in ("Y", "N"):
         qs = qs.filter(active=(active == "Y"))
+    if supplier:
+        qs = qs.filter(supplier__name__iexact=supplier)
     if search:
         q = Q()
         for key in fields_schema.SEARCH_KEYS:
@@ -260,25 +262,6 @@ def restore_product(audit_id, user):
         raise ValidationError("This deletion record can't be restored (unreadable snapshot).")
     data = {key: snapshot.get(key, "") for key in fields_schema.FIELD_KEYS}
     return create_product(data, user)
-
-
-def import_products(rows, user):
-    """Bulk create via create_product (reuses its validation/audit/
-    status_changed_at logic). Unlike v1's Sheets-backed version, a row that
-    fails validation (not just a blank product name) is skipped rather than
-    crashing the whole import — real Postgres columns reject bad data that
-    untyped Sheets cells would have silently accepted."""
-    imported = []
-    skipped = 0
-    for row in rows:
-        if not (row.get("product") or "").strip():
-            skipped += 1
-            continue
-        try:
-            imported.append(create_product(row, user))
-        except ValidationError:
-            skipped += 1
-    return imported, skipped
 
 
 def list_supplier_names():

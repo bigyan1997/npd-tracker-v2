@@ -10,7 +10,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import drive_client, drive_sync, image_files, import_parser, services
+from . import drive_client, drive_sync, image_files, services
 from .drive_client import DriveClient
 from .models import ProductImage, product_image_filename
 from .serializers import (
@@ -31,6 +31,7 @@ class ProductViewSet(viewsets.ViewSet):
             search=request.query_params.get("search", ""),
             status=request.query_params.get("status", ""),
             active=request.query_params.get("active", ""),
+            supplier=request.query_params.get("supplier", ""),
         )
         return Response(ProductSerializer(rows, many=True).data)
 
@@ -68,26 +69,6 @@ class ProductViewSet(viewsets.ViewSet):
         except services.NotFoundError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @action(detail=False, methods=["post"], url_path="import/preview")
-    def import_preview(self, request):
-        file = request.FILES.get("file")
-        if not file:
-            return Response({"detail": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            rows, unmapped_columns = import_parser.parse_csv(file)
-        except import_parser.ParseError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"rows": rows, "unmappedColumns": unmapped_columns})
-
-    @action(detail=False, methods=["post"], url_path="import/commit")
-    def import_commit(self, request):
-        rows = request.data.get("rows", [])
-        row_data = [r.get("data", {}) for r in rows]
-        records, skipped = services.import_products(row_data, request.user)
-        if not records:
-            return Response({"detail": "No valid rows to import."}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"imported": len(records), "skipped": skipped}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"], url_path="history")
     def history(self, request, pk=None):
