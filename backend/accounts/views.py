@@ -25,11 +25,16 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        username = request.data.get("username", "")
+        email = request.data.get("email", "").strip()
         password = request.data.get("password", "")
+
+        User = get_user_model()
+        account = User.objects.filter(email__iexact=email).first() if email else None
+        username = account.username if account else ""
+
         user = authenticate(request, username=username, password=password)
         if user is None:
-            return Response({"detail": "Invalid credentials."}, status=400)
+            return Response({"detail": "Invalid email or password."}, status=400)
         login(request, user)
         return Response(_user_payload(user))
 

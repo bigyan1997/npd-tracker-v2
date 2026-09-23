@@ -4,9 +4,9 @@ export async function fetchCsrf() {
   await api.get('/auth/csrf/')
 }
 
-export async function login(username, password) {
+export async function login(email, password) {
   await fetchCsrf()
-  const res = await api.post('/auth/login/', { username, password })
+  const res = await api.post('/auth/login/', { email, password })
   return res.data
 }
 

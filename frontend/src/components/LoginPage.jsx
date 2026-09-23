@@ -48,12 +48,13 @@ function GoogleSignInButton({ onCredential }) {
 }
 
 export function LoginPage() {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
-    mutationFn: () => login(username, password),
+    mutationFn: () => login(email, password),
     onSuccess: (user) => {
       queryClient.setQueryData(['me'], user)
     },
@@ -95,26 +96,37 @@ export function LoginPage() {
         )}
 
         <div className="mb-3 flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#6b6656]">Username</label>
+          <label className="text-xs font-semibold text-[#6b6656]">Email</label>
           <input
+            type="email"
             autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="rounded-md border border-line bg-[#fdfcf9] px-2.5 py-2 text-sm"
           />
         </div>
         <div className="mb-4 flex flex-col gap-1">
           <label className="text-xs font-semibold text-[#6b6656]">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-md border border-line bg-[#fdfcf9] px-2.5 py-2 text-sm"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-md border border-line bg-[#fdfcf9] px-2.5 py-2 pr-14 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              tabIndex={-1}
+              className="absolute inset-y-0 right-2 text-xs font-semibold text-[#6b6656] hover:text-moss-dark"
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
         </div>
         {mutation.isError && (
           <div className="mb-3 text-xs font-semibold text-[#a13a2c]">
-            Invalid username or password.
+            Invalid email or password.
           </div>
         )}
         <button
