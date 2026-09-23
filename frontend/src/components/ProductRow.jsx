@@ -44,7 +44,10 @@ function PipelineChips({ row, pipelineFields }) {
               const isY = row[f.key] === true
               return (
                 <div key={f.key} className="flex items-center justify-between gap-3 py-0.5">
-                  <span className="text-[#4a463a]">{f.label}</span>
+                  <span className="text-[#4a463a]">
+                    {f.chipLabel && <span className="font-bold text-[#9a9484]">{f.chipLabel} — </span>}
+                    {f.label}
+                  </span>
                   <span className={'font-bold ' + (isY ? 'text-ok' : 'text-[#b03a3a]')}>{isY ? 'Y' : 'N'}</span>
                 </div>
               )
