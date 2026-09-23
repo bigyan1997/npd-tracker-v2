@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDateDisplay } from '../lib/dates'
+import { photoCounts } from '../lib/photos'
 import { ConfirmDialog } from './ConfirmDialog'
 
 function PipelineChips({ row, pipelineFields }) {
@@ -51,6 +52,39 @@ function PipelineChips({ row, pipelineFields }) {
           </div>,
           document.body,
         )}
+    </td>
+  )
+}
+
+function plural(n, word) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`
+}
+
+// Only a category with *no* photos is flagged — one photo is still progress.
+function PhotosCell({ row }) {
+  const c = photoCounts(row)
+  if (c.product === 0 && c.nutrition === 0) {
+    return (
+      <td className="px-3 py-2.5 text-[13.5px] whitespace-nowrap">
+        <span className="rounded bg-[#fef3c7] px-1.5 py-0.5 text-[10.5px] font-bold text-[#92400e]">No photos</span>
+      </td>
+    )
+  }
+  const part = (n, icon, word) => (
+    <span className={n === 0 ? 'font-semibold text-[#b45309]' : 'text-[#4a463a]'}>
+      {icon} {n === 0 ? '—' : n}
+      <span className="sr-only"> {plural(n, word)}</span>
+    </span>
+  )
+  const title =
+    `${plural(c.product, 'product photo')}, ${plural(c.nutrition, 'nutrition label photo')}` +
+    (c.product === 0 ? ' — no product photo yet' : '') +
+    (c.nutrition === 0 ? ' — no nutrition label yet' : '')
+  return (
+    <td className="px-3 py-2.5 text-[13px] whitespace-nowrap" title={title}>
+      {part(c.product, '📷', 'product photo')}
+      <span className="mx-1 text-[#c9c4b3]">·</span>
+      {part(c.nutrition, '🏷', 'nutrition label')}
     </td>
   )
 }
@@ -122,6 +156,7 @@ export function ProductRow({ row, columns, beforeCount, pipelineFields, onOpen, 
         <Cell key={f.key} field={f} row={row} />
       ))}
       <PipelineChips row={row} pipelineFields={pipelineFields} />
+      <PhotosCell row={row} />
       {after.map((f) => (
         <Cell key={f.key} field={f} row={row} />
       ))}

@@ -5,6 +5,7 @@ import { uploadProductImage } from './api/images'
 import { fetchLinks } from './api/links'
 import { createProduct, deleteProduct, fetchProducts, updateProduct } from './api/products'
 import { fetchSchema } from './api/schema'
+import { PHOTO_FILTERS, photoCounts } from './lib/photos'
 import { DeletedProductsModal } from './components/DeletedProductsModal'
 import { ImportModal } from './components/ImportModal'
 import { LoginPage } from './components/LoginPage'
@@ -39,6 +40,7 @@ function MainApp({ username }) {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [active, setActive] = useState('')
+  const [photos, setPhotos] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const [modalError, setModalError] = useState(null)
@@ -61,7 +63,8 @@ function MainApp({ username }) {
   )
 
   const sortedRows = useMemo(() => {
-    const rows = productsQuery.data ?? []
+    const photoFilter = PHOTO_FILTERS[photos]
+    const rows = (productsQuery.data ?? []).filter((row) => !photoFilter || photoFilter(photoCounts(row)))
     const field = schemaQuery.data?.fields.find((f) => f.key === sortKey)
     if (!field) return rows
     const dir = sortDir === 'asc' ? 1 : -1
@@ -74,7 +77,7 @@ function MainApp({ username }) {
       // correctly with a plain string compare — no parsing needed.
       return String(av || '').localeCompare(String(bv || '')) * dir
     })
-  }, [productsQuery.data, schemaQuery.data, sortKey, sortDir])
+  }, [productsQuery.data, schemaQuery.data, sortKey, sortDir, photos])
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -213,6 +216,8 @@ function MainApp({ username }) {
           onStatusChange={setStatus}
           active={active}
           onActiveChange={setActive}
+          photos={photos}
+          onPhotosChange={setPhotos}
           statusOptions={statusOptions}
           onExport={handleExport}
           onImport={() => setImportModalOpen(true)}
@@ -236,7 +241,10 @@ function MainApp({ username }) {
         <ProductModal
           schema={schemaQuery.data}
           record={editingRecord}
-          onClose={() => setModalOpen(false)}
+          onClose={() => {
+            setModalOpen(false)
+            invalidateProducts() // photo counts may have changed
+          }}
           onSave={handleSave}
           onDelete={() => editingRecord && deleteMutation.mutate(editingRecord.id)}
           saving={createMutation.isPending || updateMutation.isPending}

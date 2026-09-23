@@ -76,7 +76,10 @@ export function ProductImageGallery({ productId, category, label, images, folder
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
-        <label className="text-[11.5px] font-semibold text-[#6b6656]">{label}</label>
+        <label className="text-[11.5px] font-semibold text-[#6b6656]">
+          {label}
+          {!isPending && <span className="font-normal text-[#9a9484]"> ({localImages.length})</span>}
+        </label>
         {folderUrl && (
           <a
             href={folderUrl}
@@ -133,6 +136,22 @@ export function ProductImageGallery({ productId, category, label, images, folder
           />
         </label>
       </div>
+      {!isPending && localImages.length === 0 && (
+        <div className="rounded-md bg-[#fef3c7]/60 px-2.5 py-1.5 text-[11.5px] text-[#92400e]">
+          No {label.toLowerCase()} yet. Add one here
+          {folderUrl ? (
+            <>
+              , or drop it into{' '}
+              <a href={folderUrl} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
+                this product&apos;s Google Drive folder
+              </a>
+              .
+            </>
+          ) : (
+            '.'
+          )}
+        </div>
+      )}
       {isPending && pendingFiles.length > 0 && (
         <div className="text-[11px] text-off">Photos will be uploaded after you save.</div>
       )}

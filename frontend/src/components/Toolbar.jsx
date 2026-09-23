@@ -5,6 +5,8 @@ export function Toolbar({
   onStatusChange,
   active,
   onActiveChange,
+  photos,
+  onPhotosChange,
   statusOptions,
   onExport,
   onImport,
@@ -40,6 +42,16 @@ export function Toolbar({
         <option value="">Active + Inactive</option>
         <option value="Y">Active only</option>
         <option value="N">Inactive only</option>
+      </select>
+      <select
+        value={photos}
+        onChange={(e) => onPhotosChange(e.target.value)}
+        className="rounded-md border border-line bg-white px-2.5 py-2 text-[13px]"
+      >
+        <option value="">All photos</option>
+        <option value="missing">Missing photos</option>
+        <option value="no-product">No product photos</option>
+        <option value="no-nutrition">No nutrition label</option>
       </select>
       <button
         onClick={onExport}
