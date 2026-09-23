@@ -1,3 +1,3 @@
-- [NPD Tracker deployment](npd_tracker_deployment.md) — v1 (port 8000) + v2 (port 8001) hosting, Tailscale, logins, Sheets/Postgres for Achieve Cafe Provisions' tracker
+- [NPD Tracker deployment](npd_tracker_deployment.md) — v2 only (port 8001; v1 removed 2026-09-24), Tailscale, logins, Postgres/Sheets/Drive for Achieve Cafe Provisions
 - [User role: Achieve Cafe Provisions ops](user_role_acp.md) — non-developer, needs guided steps for infra work
 - [Google accounts & photo storage](google_accounts.md) — orders@ is personal Google; v2 photos live in achievecafeprovisions@gmail.com Drive via OAuth

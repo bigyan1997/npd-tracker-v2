@@ -11,6 +11,7 @@ backend/__pycache__/
 *.pyc
 backend/staticfiles/
 backend/media/
+backend/logs/
 
 # node
 frontend/node_modules/
