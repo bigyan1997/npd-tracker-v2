@@ -17,6 +17,7 @@ Postgres as source of truth, one-way Postgres → Sheets mirror, photos in Googl
 - Mirror sheet: (ID in DEPLOYMENT_NOTES.md), tab `NPD` — service account (email in DEPLOYMENT_NOTES.md), key in `backend/secrets/service-account.json`
 - Two admin logins: `achievecafeprovisions@gmail.com` (password in DEPLOYMENT_NOTES.md) and `bigyan@achievewholesale.com.au` (password in DEPLOYMENT_NOTES.md)
 - Login API `/api/auth/login/` expects an `email` field, not `username`
+- Staff all share one tracker login (2026-09-24). So: product list auto-refreshes every 20s, saves send `expectedUpdatedAt` (409 on conflict → "Load latest"/"Save mine anyway"), and a banner offers reload after deploys. History therefore can't show who changed what — I suggested per-person logins; user chose not to for now.
 - 44 suppliers + 6 products
 - **Known data issue, not yet fixed**: 3 products (Apricot Goji & Almond, Macadamia Choc Fudge Brownie, Oh MG Pistachio & Coconut) have status "Will be listed - being prepared" as a placeholder guess from the original migration — needs manual correction by the user
 - Deploying a frontend change: `npm run build` rewrites `frontend/dist/index.html` to new asset names immediately, which breaks the live page until `manage.py collectstatic` + a server restart — do all three together.
