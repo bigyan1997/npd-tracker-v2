@@ -34,7 +34,7 @@ FIELDS = [
     {"key": "supplier", "label": "Supplier", "type": "combo", "section": "Overview",
      "required": True, "dashboard": True},
 
-    {"key": "sampleReceived", "label": "Sample Received", "type": "date", "section": "Sampling & Tasting"},
+    {"key": "sampleReceived", "dashboard": True, "label": "Sample Received", "type": "date", "section": "Sampling & Tasting"},
     {"key": "dimensions", "label": "Dimensions – L x W x H (cm's)", "type": "text", "section": "Sampling & Tasting",
      "placeholder": "e.g. 12 x 8 x 4"},
     {"key": "weight", "label": "Weight (sample only — NOT NI)", "type": "text", "section": "Sampling & Tasting"},
