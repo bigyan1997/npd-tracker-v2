@@ -104,14 +104,47 @@ npm run build
 `0.0.0.0:8001` and restarts it if it ever stops; a Startup-folder shortcut
 runs it at login, and the scheduled task "NPD Tracker v2 Keep Alive"
 (`keep_alive.vbs` → `keep_alive.ps1`) restarts it if it stops answering.
+A second scheduled task, "NPD Tracker v2 Auto Deploy" (`auto_deploy.vbs` →
+`auto_deploy.ps1`), deploys new commits from GitHub.
 
-**Deploying a change:**
-1. Backend-only change → restart the server.
-2. Frontend change → `npm run build`, then `python manage.py collectstatic
-   --noinput`, then restart the server — **all three together**: the build
-   immediately points `index.html` at new asset files the running server
-   doesn't serve until collectstatic + restart. Open pages then show a
-   "new version available — Reload" banner within ~5 minutes.
+**Deploying a change — just push to `main` on GitHub.** The office PC runs
+`auto_deploy.ps1` every 5 minutes (scheduled task "NPD Tracker v2 Auto
+Deploy"). When `main` has new commits it fast-forwards to them, installs new
+packages, **runs the tests and builds the frontend while the live app keeps
+running**, and only if that all passes applies migrations, swaps in the new
+frontend and restarts the server (~a minute end to end). Any failure rolls
+back to the previous commit and leaves the live app untouched; if the app
+doesn't come back after the restart, it rolls back and restarts again.
+Everything is logged to `backend/logs/auto_deploy.log` on the office PC.
+Open pages then show a "new version available — Reload" banner.
+
+It won't deploy over work done directly on the office PC: if that folder has
+uncommitted changes, or commits that aren't on GitHub, it skips and says so
+in the log until they're committed/pushed. Migrations are applied after the
+tests pass but can't be rolled back automatically — keep them backwards
+compatible.
+
+**Working from another computer:**
+
+```
+git clone https://github.com/bigyan1997/npd-tracker-v2.git
+cd npd-tracker-v2/backend
+python -m venv .venv  &&  .venv\Scripts\activate  &&  pip install -r requirements.txt
+cd ../frontend  &&  npm install
+```
+
+Make the change, run the tests (see *Tests* — no Postgres needed) and
+`npm run build` to catch frontend errors, then commit and push to `main`.
+It's live within ~5 minutes. Secrets (`.env`, `backend/secrets/`) stay on
+the office PC and aren't needed for this; to run the whole app locally
+you'd also need Postgres and your own `.env`.
+
+**Deploying by hand on the office PC** (e.g. if auto-deploy is paused): for
+a frontend change run `npm run build`, then `python manage.py collectstatic
+--noinput`, then restart the server — all three together, because the build
+immediately points `index.html` at new asset files the running server doesn't
+serve until it restarts. Commit and push afterwards so auto-deploy doesn't
+skip.
 
 **Development:** two terminals, hot reload on both sides:
 
