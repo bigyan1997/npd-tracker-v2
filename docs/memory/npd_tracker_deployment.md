@@ -12,13 +12,14 @@ At the user's request v1 (`C:\Users\order\NPD-Tracker`, Google-Sheets-backed, po
 
 ## v2 — `C:\Users\order\Desktop\NPD-Tracker-v2` — port 8001
 Postgres as source of truth, one-way Postgres → Sheets mirror, photos in Google Drive (see [[google-accounts]]). Served via `waitress` on `0.0.0.0:8001`. GitHub: `bigyan1997/npd-tracker-v2` (**public** repo — never commit secrets; no AI-tool attribution in commits or files).
-- Access: `http://localhost:8001`, LAN `http://<lan-ip>:8001`, Tailscale `http://<tailscale-ip>:8001`
+- Access: `http://localhost:8001`, LAN `http://<lan-ip>:8001` (cable; Wi-Fi backup `http://<lan-ip>:8001`, added to ALLOWED_HOSTS/CSRF 2026-09-24), Tailscale `http://<tailscale-ip>:8001`. Office computers need no Tailscale — just the LAN address. Both LAN IPs are DHCP (not reserved) — if they change, update `.env` and restart.
 - Postgres 18 (Windows service `postgresql-x64-18`), database/role `npd_tracker_v2` (role can't create databases, so tests run on SQLite); DB password and Django secret key are in `backend/.env` (gitignored)
 - Mirror sheet: (ID in DEPLOYMENT_NOTES.md), tab `NPD` — service account (email in DEPLOYMENT_NOTES.md), key in `backend/secrets/service-account.json`
 - Two admin logins: `achievecafeprovisions@gmail.com` (password in DEPLOYMENT_NOTES.md) and `bigyan@achievewholesale.com.au` (password in DEPLOYMENT_NOTES.md)
 - Login API `/api/auth/login/` expects an `email` field, not `username`
 - Staff all share one tracker login (2026-09-24). So: product list auto-refreshes every 20s, saves send `expectedUpdatedAt` (409 on conflict → "Load latest"/"Save mine anyway"), and a banner offers reload after deploys. History therefore can't show who changed what — I suggested per-person logins; user chose not to for now.
-- 44 suppliers + 6 products
+- 44 suppliers; products are being added/changed by staff daily now (6 as of 2026-09-24 09:00)
+- Fields added 2026-09-24: **Planned Launch** (free text, form + table column; appended at end of FIELDS to keep Sheet columns stable). Nutrition labels accept **PDFs** (content-checked; PDFs refused as product photos). All other fields shown in the form except legacy `imagesLocation`.
 - **Known data issue, not yet fixed**: 3 products (Apricot Goji & Almond, Macadamia Choc Fudge Brownie, Oh MG Pistachio & Coconut) have status "Will be listed - being prepared" as a placeholder guess from the original migration — needs manual correction by the user
 - Deploying a frontend change: `npm run build` rewrites `frontend/dist/index.html` to new asset names immediately, which breaks the live page until `manage.py collectstatic` + a server restart — do all three together.
 
