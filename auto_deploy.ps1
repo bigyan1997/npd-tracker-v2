@@ -138,7 +138,7 @@ try {
         'from npd_tracker.settings import *  # noqa',
         'DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}'
     )
-    $testCmd = "set `"PYTHONPATH=$testDir;.`" && set DJANGO_SETTINGS_MODULE=deploy_test_settings && `"$python`" manage.py test --noinput"
+    $testCmd = "set `"PYTHONPATH=$testDir;.`" && set `"DJANGO_SETTINGS_MODULE=deploy_test_settings`" && `"$python`" manage.py test --noinput"
     if ((Invoke-Step 'tests' $testCmd $backend) -ne 0) { Undo-Update 'tests failed'; exit 1 }
 
     $frontendChanged = [bool]($changed -match '^frontend/')
