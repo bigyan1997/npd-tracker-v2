@@ -1,3 +1,4 @@
 - [NPD Tracker deployment](npd_tracker_deployment.md) — v2 only (port 8001; v1 removed 2026-09-24), Tailscale, logins, Postgres/Sheets/Drive for Achieve Cafe Provisions
 - [User role: Achieve Cafe Provisions ops](user_role_acp.md) — non-developer, needs guided steps for infra work
 - [Google accounts & photo storage](google_accounts.md) — orders@ is personal Google; v2 photos live in achievecafeprovisions@gmail.com Drive via OAuth
+- [Checklist redesign (pending)](checklist_redesign.md) — proposed Go-to-Market checklist UI; waiting on user's answers about step order
