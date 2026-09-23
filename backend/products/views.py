@@ -233,6 +233,15 @@ class SuppliersView(APIView):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(names, status=status.HTTP_201_CREATED)
 
+    def patch(self, request):
+        try:
+            names = services.rename_supplier(
+                request.data.get("name", ""), request.data.get("newName", ""), request.user
+            )
+        except services.ValidationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(names)
+
     def delete(self, request):
         try:
             names = services.delete_supplier(request.data.get("name", ""))

@@ -1,17 +1,32 @@
 import { useState } from 'react'
 
-export function AddSuggestionDialog({ title, initialValue, existing = [], onConfirm, onClose }) {
+// Used for both adding and renaming. `existing` = names the new one mustn't
+// collide with. Adding a duplicate just selects it; renaming onto another
+// supplier's name is blocked (`blockDuplicates`).
+export function AddSuggestionDialog({
+  title,
+  initialValue,
+  existing = [],
+  blockDuplicates = false,
+  confirmLabel = 'Add',
+  savingLabel = 'Adding…',
+  onConfirm,
+  onClose,
+}) {
   const [name, setName] = useState(initialValue)
   const [status, setStatus] = useState('idle')
+  const [errorMessage, setErrorMessage] = useState(null)
   const match = existing.find((s) => s.toLowerCase() === name.trim().toLowerCase())
+  const blocked = blockDuplicates && Boolean(match)
 
   const handleAdd = async () => {
-    if (!name.trim() || status === 'saving') return
+    if (!name.trim() || blocked || status === 'saving') return
     setStatus('saving')
     try {
       await onConfirm(name.trim())
       onClose()
-    } catch {
+    } catch (err) {
+      setErrorMessage(err?.response?.data?.detail ?? 'Could not save — try again.')
       setStatus('error')
     }
   }
@@ -41,10 +56,14 @@ export function AddSuggestionDialog({ title, initialValue, existing = [], onConf
           className="w-full rounded-md border border-line bg-[#fdfcf9] px-2.5 py-2 text-[13.5px]"
         />
         {match && status !== 'error' && (
-          <div className="mt-1.5 text-[11.5px] text-off">"{match}" is already in the list — Add will just select it.</div>
+          blocked ? (
+            <div className="mt-1.5 text-[11.5px] font-semibold text-[#a13a2c]">"{match}" is already in the list.</div>
+          ) : (
+            <div className="mt-1.5 text-[11.5px] text-off">"{match}" is already in the list — Add will just select it.</div>
+          )
         )}
         {status === 'error' && (
-          <div className="mt-1.5 text-[11.5px] font-semibold text-[#a13a2c]">Could not add — try again.</div>
+          <div className="mt-1.5 text-[11.5px] font-semibold text-[#a13a2c]">{errorMessage}</div>
         )}
         <div className="mt-4 flex justify-end gap-2.5">
           <button
@@ -57,10 +76,10 @@ export function AddSuggestionDialog({ title, initialValue, existing = [], onConf
           <button
             type="button"
             onClick={handleAdd}
-            disabled={!name.trim() || status === 'saving'}
+            disabled={!name.trim() || blocked || status === 'saving'}
             className="rounded-md bg-clay px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-[#9c5518] disabled:opacity-60"
           >
-            {status === 'saving' ? 'Adding…' : 'Add'}
+            {status === 'saving' ? savingLabel : confirmLabel}
           </button>
         </div>
       </div>

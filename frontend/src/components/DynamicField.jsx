@@ -6,10 +6,11 @@ import { YesNoToggle } from './YesNoToggle'
 const inputClass =
   'rounded-md border border-line bg-[#fdfcf9] px-2.5 py-2 text-[13.5px] font-sans'
 
-function ComboField({ value, onChange, suggestions, placeholder, onAddNew, onDeleteItem }) {
+function ComboField({ value, onChange, suggestions, placeholder, onAddNew, onRenameItem, onDeleteItem }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [renameTarget, setRenameTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleteError, setDeleteError] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -113,6 +114,21 @@ function ComboField({ value, onChange, suggestions, placeholder, onAddNew, onDel
           }}
         />
       )}
+      {renameTarget && onRenameItem && (
+        <AddSuggestionDialog
+          title="Rename Supplier"
+          initialValue={renameTarget}
+          existing={suggestions.filter((s) => s !== renameTarget)}
+          blockDuplicates
+          confirmLabel="Save"
+          savingLabel="Saving…"
+          onClose={() => setRenameTarget(null)}
+          onConfirm={async (name) => {
+            await onRenameItem(renameTarget, name)
+            if (value === renameTarget) onChange(name)
+          }}
+        />
+      )}
       {deleteTarget && (
         <ConfirmDialog
           title="Delete supplier?"
@@ -138,7 +154,32 @@ function ComboField({ value, onChange, suggestions, placeholder, onAddNew, onDel
               }}
               className="flex cursor-pointer items-center justify-between gap-2 px-2.5 py-1.5 text-[13.5px] hover:bg-[#f5f3ea]"
             >
-              <span>{s}</span>
+              <span className="flex-1">{s}</span>
+              {onRenameItem && (
+                <button
+                  type="button"
+                  title="Rename supplier"
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setOpen(false)
+                    setRenameTarget(s)
+                  }}
+                  className="shrink-0 rounded px-1 text-[#c9c4b3] hover:text-moss-dark"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="inline-block h-[13px] w-[13px] align-middle"
+                  >
+                    <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </button>
+              )}
               {onDeleteItem && (
                 <button
                   type="button"
@@ -172,7 +213,15 @@ function ComboField({ value, onChange, suggestions, placeholder, onAddNew, onDel
   )
 }
 
-export function DynamicField({ field, value, onChange, suggestions, onAddSuggestion, onDeleteSuggestion }) {
+export function DynamicField({
+  field,
+  value,
+  onChange,
+  suggestions,
+  onAddSuggestion,
+  onRenameSuggestion,
+  onDeleteSuggestion,
+}) {
   if (field.type === 'yn') {
     return <YesNoToggle value={value} onChange={onChange} />
   }
@@ -196,6 +245,7 @@ export function DynamicField({ field, value, onChange, suggestions, onAddSuggest
         suggestions={suggestions ?? []}
         placeholder={field.placeholder}
         onAddNew={onAddSuggestion}
+        onRenameItem={onRenameSuggestion}
         onDeleteItem={onDeleteSuggestion}
       />
     )

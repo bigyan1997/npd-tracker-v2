@@ -14,3 +14,8 @@ export async function deleteSupplier(name) {
   const res = await api.delete('/suppliers/', { data: { name } })
   return res.data
 }
+
+export async function renameSupplier(name, newName) {
+  const res = await api.patch('/suppliers/', { name, newName })
+  return res.data
+}

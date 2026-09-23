@@ -279,6 +279,49 @@ def create_supplier(name):
     return list_supplier_names()
 
 
+def rename_supplier(name, new_name, user):
+    """Rename a supplier everywhere: products point at the Supplier row, so
+    they all follow automatically. Each affected product gets a History
+    entry and is re-pushed to the Sheets mirror (which stores the name)."""
+    name = (name or "").strip()
+    new_name = (new_name or "").strip()
+    if not name or not new_name:
+        raise ValidationError("Supplier name is required.")
+    try:
+        supplier = Supplier.objects.get(name__iexact=name)
+    except Supplier.DoesNotExist:
+        raise ValidationError(f'"{name}" is not in the supplier list.')
+    if new_name == supplier.name:
+        return list_supplier_names()
+    clash = Supplier.objects.filter(name__iexact=new_name).exclude(pk=supplier.pk).first()
+    if clash:
+        raise ValidationError(f'"{clash.name}" is already in the supplier list.')
+
+    old_name = supplier.name
+    with transaction.atomic():
+        supplier.name = new_name
+        supplier.save(update_fields=["name"])
+        products = list(Product.objects.filter(supplier=supplier).select_related("supplier"))
+        AuditLogEntry.objects.bulk_create([
+            AuditLogEntry(
+                product=product,
+                record_id=product.pk,
+                product_name_snapshot=product.product,
+                field_key="supplier",
+                field_label=_field_label("supplier"),
+                old_value=old_name,
+                new_value=new_name,
+                action="update",
+                changed_by=user,
+            )
+            for product in products
+        ])
+        for product in products:
+            snapshot = _snapshot_dict(product)
+            transaction.on_commit(lambda p=product, s=snapshot: sheets_sync.push_product(p, s))
+    return list_supplier_names()
+
+
 def delete_supplier(name):
     name = (name or "").strip()
     if not name:

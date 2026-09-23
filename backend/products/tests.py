@@ -11,6 +11,8 @@ from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
+from audit.models import AuditLogEntry
+
 from . import drive_client
 from .fields_schema import STATUS_CHOICES
 from .models import Product, ProductImage, Supplier
@@ -197,3 +199,46 @@ class DrivePhotoTests(TestCase):
             res = self.upload()
         self.assertEqual(res.status_code, 502)
         self.assertFalse(ProductImage.objects.exists())
+
+
+class SupplierRenameTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("staff", "staff@example.com", "pw")
+        self.api = APIClient()
+        self.api.force_authenticate(self.user)
+        self.acme = Supplier.objects.create(name="Acme Foods")
+        Supplier.objects.create(name="Bega")
+        for name in ("Bar", "Cake"):
+            Product.objects.create(
+                date=date.today(), product=name, supplier=self.acme, status_changed_at=timezone.now(),
+            )
+
+    def rename(self, name, new_name):
+        return self.api.patch("/api/suppliers/", {"name": name, "newName": new_name}, format="json")
+
+    def test_rename_updates_products_and_history(self):
+        with mock.patch("products.sheets_sync.push_product") as push:
+            with self.captureOnCommitCallbacks(execute=True):
+                res = self.rename("acme foods", "ACME Foods Pty Ltd")
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertIn("ACME Foods Pty Ltd", res.data)
+        self.assertNotIn("Acme Foods", res.data)
+        self.assertEqual(
+            set(Product.objects.values_list("supplier__name", flat=True)), {"ACME Foods Pty Ltd"}
+        )
+        entries = AuditLogEntry.objects.filter(field_key="supplier")
+        self.assertEqual(entries.count(), 2)
+        self.assertEqual({(e.old_value, e.new_value) for e in entries}, {("Acme Foods", "ACME Foods Pty Ltd")})
+        self.assertEqual(push.call_count, 2)  # both products re-sent to the Sheets mirror
+
+    def test_case_only_rename_allowed(self):
+        self.assertEqual(self.rename("Acme Foods", "ACME FOODS").status_code, 200)
+        self.acme.refresh_from_db()
+        self.assertEqual(self.acme.name, "ACME FOODS")
+
+    def test_rename_to_another_existing_supplier_is_refused(self):
+        res = self.rename("Acme Foods", "bega")
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("Bega", res.data["detail"])
+        self.acme.refresh_from_db()
+        self.assertEqual(self.acme.name, "Acme Foods")

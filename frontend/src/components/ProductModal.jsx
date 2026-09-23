@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { fetchProductImages } from '../api/images'
 import { fetchProductHistory } from '../api/products'
-import { createSupplier, deleteSupplier, fetchSuppliers } from '../api/suppliers'
+import { createSupplier, deleteSupplier, fetchSuppliers, renameSupplier } from '../api/suppliers'
 import { ConfirmDialog } from './ConfirmDialog'
 import { DynamicField } from './DynamicField'
 import { ProductImageGallery } from './ProductImageGallery'
@@ -52,6 +52,14 @@ export function ProductModal({
   const addSupplierMutation = useMutation({
     mutationFn: createSupplier,
     onSuccess: (names) => queryClient.setQueryData(['suppliers'], names),
+  })
+  const renameSupplierMutation = useMutation({
+    mutationFn: ({ name, newName }) => renameSupplier(name, newName),
+    onSuccess: (names) => {
+      queryClient.setQueryData(['suppliers'], names)
+      // The product table shows supplier names too.
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
   })
   const deleteSupplierMutation = useMutation({
     mutationFn: deleteSupplier,
@@ -168,6 +176,11 @@ export function ProductModal({
                         suggestions={f.key === 'supplier' ? suppliersQuery.data : undefined}
                         onAddSuggestion={
                           f.key === 'supplier' ? (name) => addSupplierMutation.mutateAsync(name) : undefined
+                        }
+                        onRenameSuggestion={
+                          f.key === 'supplier'
+                            ? (name, newName) => renameSupplierMutation.mutateAsync({ name, newName })
+                            : undefined
                         }
                         onDeleteSuggestion={
                           f.key === 'supplier' ? (name) => deleteSupplierMutation.mutateAsync(name) : undefined
