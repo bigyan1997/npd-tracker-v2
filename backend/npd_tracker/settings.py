@@ -19,6 +19,16 @@ NPD_SHEETS_KEYFILE = config('NPD_SHEETS_KEYFILE', default='secrets/service-accou
 NPD_SHEET_ID = config('NPD_SHEET_ID', default='')
 NPD_SHEET_TAB = config('NPD_SHEET_TAB', default='NPD')
 
+# Google Drive photo storage (see .env.example / products/drive_client.py).
+# Photos live in the achievecafeprovisions@ account's Drive, not this machine's
+# disk. Drive is switched on simply by the token file existing — it's
+# written by `manage.py drive_authorize`. Without it, uploads fall back to
+# local MEDIA_ROOT (dev/tests).
+NPD_DRIVE_CLIENT_SECRETS = config('NPD_DRIVE_CLIENT_SECRETS', default='secrets/drive-oauth-client.json')
+NPD_DRIVE_TOKEN_FILE = config('NPD_DRIVE_TOKEN_FILE', default='secrets/drive-token.json')
+NPD_DRIVE_ROOT_FOLDER = config('NPD_DRIVE_ROOT_FOLDER', default='NPD Tracker Photos')
+NPD_DRIVE_SYNC_SECONDS = config('NPD_DRIVE_SYNC_SECONDS', default=120, cast=int)
+
 # Google Sign-In (see .env.example)
 GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default='')
 GOOGLE_ALLOWED_EMAIL = config('GOOGLE_ALLOWED_EMAIL', default='')

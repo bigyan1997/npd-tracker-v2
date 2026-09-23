@@ -2,6 +2,7 @@
 backend/secrets/*.json
 backend/.env
 .env
+DEPLOYMENT_NOTES.md
 
 # python
 backend/.venv/

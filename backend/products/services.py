@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from audit.models import AuditLogEntry
 
-from . import fields_schema, sheets_sync
+from . import drive_sync, fields_schema, sheets_sync
 from .models import Product, Supplier
 
 
@@ -162,6 +162,7 @@ def create_product(data, user):
     ]
     AuditLogEntry.objects.bulk_create(entries)
     transaction.on_commit(lambda: sheets_sync.push_product(product, snapshot))
+    transaction.on_commit(lambda: drive_sync.refresh_folders_soon(product.pk))
     return product
 
 
@@ -200,6 +201,8 @@ def update_product(pk, data, user):
     ]
     AuditLogEntry.objects.bulk_create(entries)
     transaction.on_commit(lambda: sheets_sync.push_product(product, after))
+    if before.get("product") != after.get("product"):
+        transaction.on_commit(lambda: drive_sync.refresh_folders_soon(product.pk))
     return product
 
 
@@ -218,8 +221,10 @@ def delete_product(pk, user):
         changed_by=user,
     )
     product_id = product.pk
+    drive_folder_id = product.drive_folder_id
     product.delete()
     transaction.on_commit(lambda: sheets_sync.push_delete(product_id))
+    transaction.on_commit(lambda: drive_sync.trash_folder(drive_folder_id))
 
 
 def product_history(pk):

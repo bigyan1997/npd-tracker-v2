@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { fetchProductImages } from '../api/images'
 import { fetchProductHistory } from '../api/products'
 import { createSupplier, deleteSupplier, fetchSuppliers } from '../api/suppliers'
 import { DynamicField } from './DynamicField'
@@ -59,6 +60,15 @@ export function ProductModal({
     queryFn: () => fetchProductHistory(record.id),
     enabled: isEdit && view === 'history',
   })
+  // Re-read photos from Google Drive when a product is opened — staff may
+  // have added or removed some there since the product list was loaded.
+  const imagesQuery = useQuery({
+    queryKey: ['productImages', record?.id],
+    queryFn: () => fetchProductImages(record.id),
+    enabled: isEdit,
+  })
+  const images = imagesQuery.data?.images ?? record?.images
+  const photoFolders = imagesQuery.data?.photoFolders ?? record?.photoFolders
 
   // Only fields flagged for the dashboard are shown here; everything else is
   // still tracked in `values` above (so it round-trips on save) but is only
@@ -174,8 +184,9 @@ export function ProductModal({
                   <ProductImageGallery
                     productId={isEdit ? record.id : null}
                     category="product"
+                    folderUrl={photoFolders?.product}
                     label="Product Photos"
-                    images={record?.images}
+                    images={images}
                     onPendingChange={
                       isEdit ? undefined : (files) => setPendingImages((p) => ({ ...p, product: files }))
                     }
@@ -183,8 +194,9 @@ export function ProductModal({
                   <ProductImageGallery
                     productId={isEdit ? record.id : null}
                     category="nutrition"
+                    folderUrl={photoFolders?.nutrition}
                     label="Nutrition Label Photos"
-                    images={record?.images}
+                    images={images}
                     onPendingChange={
                       isEdit ? undefined : (files) => setPendingImages((p) => ({ ...p, nutrition: files }))
                     }

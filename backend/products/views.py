@@ -1,12 +1,26 @@
+import logging
+import mimetypes
+
+from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import import_parser, services
-from .models import ProductImage
-from .serializers import ProductImageSerializer, ProductImageUploadSerializer, ProductSerializer
+from . import drive_client, drive_sync, image_files, import_parser, services
+from .drive_client import DriveClient
+from .models import ProductImage, product_image_filename
+from .serializers import (
+    ProductImageSerializer,
+    ProductImageUploadSerializer,
+    ProductSerializer,
+    photo_folders,
+)
+
+logger = logging.getLogger(__name__)
+
+DRIVE_UNAVAILABLE = "Couldn't reach Google Drive. Please try again in a moment."
 
 
 class ProductViewSet(viewsets.ViewSet):
@@ -115,6 +129,25 @@ class RestoreProductView(APIView):
 class ProductImageUploadView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
+    def get(self, request, pk=None):
+        """The product's photos, freshly pulled from Drive first — picks up
+        anything staff added/removed directly in the Drive app."""
+        try:
+            product = services.get_product(pk)
+        except services.NotFoundError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        if drive_client.enabled():
+            try:
+                drive_sync.sync_product(product)
+            except Exception:
+                # Still show what we already know rather than nothing.
+                logger.exception("Drive sync failed for product %s", pk)
+        images = ProductImage.objects.filter(product=product)
+        return Response({
+            "images": ProductImageSerializer(images, many=True).data,
+            "photoFolders": photo_folders(product),
+        })
+
     def post(self, request, pk=None):
         try:
             product = services.get_product(pk)
@@ -124,7 +157,27 @@ class ProductImageUploadView(APIView):
         if not serializer.is_valid():
             first_error = next(iter(serializer.errors.values()))[0]
             return Response({"detail": str(first_error)}, status=status.HTTP_400_BAD_REQUEST)
-        image = serializer.save(product=product, uploaded_by=request.user)
+        if not drive_client.enabled():
+            image = serializer.save(product=product, uploaded_by=request.user)
+            return Response(ProductImageSerializer(image).data, status=status.HTTP_201_CREATED)
+
+        category = serializer.validated_data["category"]
+        upload = serializer.validated_data["image"]
+        upload.seek(0)
+        mime = upload.content_type or mimetypes.guess_type(upload.name)[0] or "application/octet-stream"
+        try:
+            client = DriveClient()
+            drive_sync.ensure_folders(product, client, verify=True)
+            meta = client.upload(
+                product.drive_folder_for(category),
+                product_image_filename(product, category, upload.name),
+                upload.read(),
+                mime,
+            )
+        except Exception:
+            logger.exception("Drive upload failed for product %s", pk)
+            return Response({"detail": DRIVE_UNAVAILABLE}, status=status.HTTP_502_BAD_GATEWAY)
+        image = drive_sync.upsert_from_drive(product, category, meta, uploaded_by=request.user)
         return Response(ProductImageSerializer(image).data, status=status.HTTP_201_CREATED)
 
 
@@ -134,9 +187,39 @@ class ProductImageDeleteView(APIView):
             image = ProductImage.objects.get(pk=image_id, product_id=pk)
         except ProductImage.DoesNotExist:
             return Response({"detail": "Image not found."}, status=status.HTTP_404_NOT_FOUND)
-        image.image.delete(save=False)
+        if image.drive_file_id:
+            try:
+                DriveClient().trash(image.drive_file_id)
+            except Exception:
+                logger.exception("Drive trash failed for image %s", image.pk)
+                return Response({"detail": DRIVE_UNAVAILABLE}, status=status.HTTP_502_BAD_GATEWAY)
+        elif image.image:
+            image.image.delete(save=False)
+        image_files.clear_cached(image)
         image.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProductImageFileView(APIView):
+    """The photo itself (or its gallery thumbnail with ?size=thumb)."""
+
+    def get(self, request, pk=None, image_id=None):
+        try:
+            image = ProductImage.objects.get(pk=image_id, product_id=pk)
+        except ProductImage.DoesNotExist:
+            return Response({"detail": "Image not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            if request.query_params.get("size") == "thumb":
+                data, content_type = image_files.thumbnail(image)
+            else:
+                data, content_type = image_files.full(image)
+        except Exception:
+            logger.exception("Couldn't load image %s", image.pk)
+            return Response({"detail": DRIVE_UNAVAILABLE}, status=status.HTTP_502_BAD_GATEWAY)
+        response = HttpResponse(data, content_type=content_type)
+        # URLs carry ?v=<modified time>, so a changed photo gets a new URL.
+        response["Cache-Control"] = "private, max-age=604800"
+        return response
 
 
 class SuppliersView(APIView):

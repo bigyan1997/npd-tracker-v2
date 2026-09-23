@@ -7,11 +7,17 @@ import { ConfirmDialog } from './ConfirmDialog'
 // since there's no product to attach them to yet. The parent (ProductModal)
 // is notified of the staged file list via onPendingChange and uploads them
 // itself once the product has been created.
-export function ProductImageGallery({ productId, category, label, images, onPendingChange }) {
+export function ProductImageGallery({ productId, category, label, images, folderUrl, onPendingChange }) {
   const isPending = !productId
   const [localImages, setLocalImages] = useState(() =>
     (images || []).filter((img) => img.category === category),
   )
+  // `images` is replaced when the fresh list arrives from Google Drive.
+  const [syncedImages, setSyncedImages] = useState(images)
+  if (images !== syncedImages) {
+    setSyncedImages(images)
+    setLocalImages((images || []).filter((img) => img.category === category))
+  }
   const [pendingFiles, setPendingFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
@@ -65,7 +71,19 @@ export function ProductImageGallery({ productId, category, label, images, onPend
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-[11.5px] font-semibold text-[#6b6656]">{label}</label>
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="text-[11.5px] font-semibold text-[#6b6656]">{label}</label>
+        {folderUrl && (
+          <a
+            href={folderUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] text-clay hover:underline"
+          >
+            Open in Google Drive ↗
+          </a>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
         {isPending
           ? pendingFiles.map((p, i) => (
@@ -83,7 +101,9 @@ export function ProductImageGallery({ productId, category, label, images, onPend
             ))
           : localImages.map((img) => (
               <div key={img.id} className="group relative h-20 w-20 overflow-hidden rounded-md border border-line">
-                <img src={img.image} alt="" className="h-full w-full object-cover" />
+                <a href={img.image} target="_blank" rel="noopener noreferrer" title={img.filename || 'View full size'}>
+                  <img src={img.thumb ?? img.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+                </a>
                 <button
                   type="button"
                   title="Delete image"

@@ -5,6 +5,7 @@ from .schema_view import SchemaView
 from .views import (
     DeletedProductsView,
     ProductImageDeleteView,
+    ProductImageFileView,
     ProductImageUploadView,
     ProductViewSet,
     RestoreProductView,
@@ -26,6 +27,11 @@ urlpatterns = [
         "products/<int:pk>/images/<int:image_id>/",
         ProductImageDeleteView.as_view(),
         name="product-image-delete",
+    ),
+    path(
+        "products/<int:pk>/images/<int:image_id>/file/",
+        ProductImageFileView.as_view(),
+        name="product-image-file",
     ),
     *router.urls,
 ]

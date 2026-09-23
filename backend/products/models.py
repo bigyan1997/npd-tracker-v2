@@ -76,6 +76,12 @@ class Product(models.Model):
     )
     sheet_row_synced_at = models.DateTimeField(null=True, blank=True)
 
+    # Google Drive photo folders (see drive_client.py) — the product's own
+    # folder plus one subfolder per image category.
+    drive_folder_id = models.CharField(max_length=128, blank=True)
+    drive_product_folder_id = models.CharField(max_length=128, blank=True)
+    drive_nutrition_folder_id = models.CharField(max_length=128, blank=True)
+
     class Meta:
         ordering = ["-date", "-id"]
         indexes = [
@@ -88,17 +94,27 @@ class Product(models.Model):
         return self.product or f"Product #{self.pk}"
 
 
-def product_image_upload_path(instance, filename):
+    def drive_folder_for(self, category):
+        if category == ProductImage.CATEGORY_PRODUCT:
+            return self.drive_product_folder_id
+        return self.drive_nutrition_folder_id
+
+
+def product_image_filename(product, category, filename):
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
-    if instance.category == "product":
-        code, folder = "PI", "product_images"
-    else:
-        code, folder = "NI", "nutritional_images"
-    product_name = _slugify_for_filename(instance.product.product if instance.product_id else "")
-    date_str = timezone.now().strftime("%Y%m%d")
+    code = "PI" if category == "product" else "NI"
+    product_name = _slugify_for_filename(product.product if product else "")
+    date_str = timezone.localdate().strftime("%Y%m%d")  # Sydney date, not UTC
     unique = uuid.uuid4().hex[:6]  # avoids overwriting a same-day second upload for this product/category
+    return f"{product_name}_{code}_{date_str}_{unique}.{ext}"
+
+
+def product_image_upload_path(instance, filename):
+    folder = "product_images" if instance.category == "product" else "nutritional_images"
+    product_name = _slugify_for_filename(instance.product.product if instance.product_id else "")
     product_folder = f"{product_name}_{instance.product_id}"
-    return f"{folder}/{product_folder}/{product_name}_{code}_{date_str}_{unique}.{ext}"
+    name = product_image_filename(instance.product if instance.product_id else None, instance.category, filename)
+    return f"{folder}/{product_folder}/{name}"
 
 
 class ProductImage(models.Model):
@@ -111,11 +127,22 @@ class ProductImage(models.Model):
 
     product = models.ForeignKey(Product, related_name="images", on_delete=models.CASCADE)
     category = models.CharField(max_length=16, choices=CATEGORY_CHOICES)
-    image = models.ImageField(upload_to=product_image_upload_path, validators=[validate_image_file_size])
+    # Local file — only used when Drive isn't configured (dev/tests).
+    image = models.ImageField(
+        upload_to=product_image_upload_path, validators=[validate_image_file_size], blank=True
+    )
+    # Drive-stored photo. Drive is the source of truth: rows are created/
+    # updated/removed by drive_sync to match what's actually in the folders,
+    # including photos staff dropped in directly via the Drive app.
+    drive_file_id = models.CharField(max_length=128, unique=True, null=True, blank=True)
+    drive_modified_at = models.DateTimeField(null=True, blank=True)
+    drive_thumbnail_link = models.TextField(blank=True)
+    mime_type = models.CharField(max_length=100, blank=True)
+    filename = models.CharField(max_length=255, blank=True)
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
     )
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_at = models.DateTimeField(default=timezone.now)
     sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:
