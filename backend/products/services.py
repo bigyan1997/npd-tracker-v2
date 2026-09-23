@@ -4,6 +4,7 @@ from datetime import date
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from audit.models import AuditLogEntry
 
@@ -17,6 +18,12 @@ class ValidationError(Exception):
 
 class NotFoundError(Exception):
     pass
+
+
+class ConflictError(Exception):
+    """The product changed since the client loaded it — saving would silently
+    overwrite someone else's edit. Everyone shares one login, so this is the
+    only way to tell two people's edits apart."""
 
 
 def _validate_required(data):
@@ -168,6 +175,13 @@ def create_product(data, user):
 
 def update_product(pk, data, user):
     product = get_product(pk)
+    # Optional: omitted by "Save mine anyway", which deliberately overwrites.
+    expected = parse_datetime(str(data.get("expectedUpdatedAt") or ""))
+    if expected and expected != product.updated_at:
+        raise ConflictError(
+            "This product was changed by someone else while you had it open. "
+            "Your changes haven't been saved yet."
+        )
     before = _snapshot_dict(product)
 
     _validate_required(data)
@@ -301,6 +315,9 @@ def rename_supplier(name, new_name, user):
     with transaction.atomic():
         supplier.name = new_name
         supplier.save(update_fields=["name"])
+        # Counts as a change to each product, so a form opened before the
+        # rename can't save the old name back (see ConflictError).
+        Product.objects.filter(supplier=supplier).update(updated_at=timezone.now())
         products = list(Product.objects.filter(supplier=supplier).select_related("supplier"))
         AuditLogEntry.objects.bulk_create([
             AuditLogEntry(

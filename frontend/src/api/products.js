@@ -5,6 +5,11 @@ export async function fetchProducts(filters) {
   return res.data
 }
 
+export async function fetchProduct(id) {
+  const res = await api.get(`/products/${id}/`)
+  return res.data
+}
+
 export async function createProduct(data) {
   const res = await api.post('/products/', data)
   return res.data

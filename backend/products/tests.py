@@ -242,3 +242,50 @@ class SupplierRenameTests(TestCase):
         self.assertIn("Bega", res.data["detail"])
         self.acme.refresh_from_db()
         self.assertEqual(self.acme.name, "Acme Foods")
+
+
+class EditConflictTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("staff", "staff@example.com", "pw")
+        self.api = APIClient()
+        self.api.force_authenticate(self.user)
+        self.product = Product.objects.create(
+            date=date.today(), product="Bar", supplier=Supplier.objects.create(name="Acme"),
+            status=STATUS_CHOICES[0][0], status_changed_at=timezone.now(),
+        )
+
+    def loaded(self):
+        return self.api.get(f"/api/products/{self.product.pk}/").data
+
+    def save(self, record, **changes):
+        body = {"date": record["date"], "product": record["product"], "supplier": record["supplier"],
+                "status": record["status"], "active": "Y", "expectedUpdatedAt": record["lastEditedAt"], **changes}
+        with mock.patch("products.sheets_sync.push_product"):
+            return self.api.put(f"/api/products/{self.product.pk}/", body, format="json")
+
+    def test_save_with_current_version_succeeds(self):
+        self.assertEqual(self.save(self.loaded(), weight="1kg").status_code, 200)
+
+    def test_second_stale_save_is_refused(self):
+        mine, theirs = self.loaded(), self.loaded()
+        self.assertEqual(self.save(theirs, weight="1kg").status_code, 200)
+        res = self.save(mine, weight="2kg")
+        self.assertEqual(res.status_code, 409)
+        self.assertTrue(res.data["conflict"])
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.weight, "1kg")
+
+    def test_save_anyway_overwrites(self):
+        mine, theirs = self.loaded(), self.loaded()
+        self.save(theirs, weight="1kg")
+        self.assertEqual(self.save(mine, weight="2kg", expectedUpdatedAt="").status_code, 200)
+
+    def test_supplier_rename_counts_as_a_change(self):
+        mine = self.loaded()
+        self.api.patch("/api/suppliers/", {"name": "Acme", "newName": "Acme Ltd"}, format="json")
+        self.assertEqual(self.save(mine).status_code, 409)
+
+    def test_version_endpoint(self):
+        res = self.api.get("/api/version/")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("version", res.data)

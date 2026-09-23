@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { logout, me } from './api/auth'
 import { uploadProductImage } from './api/images'
 import { fetchLinks } from './api/links'
-import { createProduct, deleteProduct, fetchProducts, updateProduct } from './api/products'
+import { createProduct, deleteProduct, fetchProduct, fetchProducts, updateProduct } from './api/products'
 import { fetchSchema } from './api/schema'
 import { PHOTO_FILTERS, photoCounts } from './lib/photos'
 import { DeletedProductsModal } from './components/DeletedProductsModal'
@@ -15,6 +15,7 @@ import { StageBar } from './components/StageBar'
 import { Toast } from './components/Toast'
 import { Toolbar } from './components/Toolbar'
 import { TopBar } from './components/TopBar'
+import { UpdateBanner } from './components/UpdateBanner'
 
 function useToast() {
   const [toast, setToast] = useState({ message: '', isError: false })
@@ -44,6 +45,7 @@ function MainApp({ username }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
   const [modalError, setModalError] = useState(null)
+  const [modalConflict, setModalConflict] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [deletedModalOpen, setDeletedModalOpen] = useState(false)
   const [sortKey, setSortKey] = useState(null)
@@ -55,6 +57,9 @@ function MainApp({ username }) {
     queryKey: ['products', { search, status, active }],
     queryFn: () => fetchProducts({ search, status, active }),
     enabled: Boolean(schemaQuery.data),
+    // Everyone shares one login on several devices — keep the list current
+    // without a manual refresh. Open edit forms aren't affected.
+    refetchInterval: 20 * 1000,
   })
 
   const statusOptions = useMemo(
@@ -118,14 +123,32 @@ function MainApp({ username }) {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => updateProduct(id, data),
+    // expectedUpdatedAt lets the server refuse to overwrite a change someone
+    // else saved after this form was opened; `force` ("Save mine anyway") omits it.
+    mutationFn: ({ id, data, force }) =>
+      updateProduct(id, { ...data, expectedUpdatedAt: force ? '' : editingRecord?.lastEditedAt }),
     onSuccess: () => {
       invalidateProducts()
       setModalOpen(false)
       show('Product updated.')
     },
-    onError: (err) => setModalError(err?.response?.data?.detail ?? 'Save failed.'),
+    onError: (err) => {
+      setModalError(err?.response?.data?.detail ?? 'Save failed.')
+      setModalConflict(err?.response?.status === 409)
+    },
   })
+
+  const loadLatestVersion = async () => {
+    try {
+      setEditingRecord(await fetchProduct(editingRecord.id))
+      setModalError(null)
+      setModalConflict(false)
+      invalidateProducts()
+    } catch {
+      setModalError('Could not load the latest version — it may have been deleted.')
+      setModalConflict(false)
+    }
+  }
 
   const deleteMutation = useMutation({
     mutationFn: deleteProduct,
@@ -148,11 +171,13 @@ function MainApp({ username }) {
   const openNew = () => {
     setEditingRecord(null)
     setModalError(null)
+    setModalConflict(false)
     setModalOpen(true)
   }
   const openEdit = (row) => {
     setEditingRecord(row)
     setModalError(null)
+    setModalConflict(false)
     setModalOpen(true)
   }
 
@@ -165,6 +190,7 @@ function MainApp({ username }) {
       return
     }
     setModalError(null)
+    setModalConflict(false)
     if (editingRecord) {
       updateMutation.mutate({ id: editingRecord.id, data })
     } else {
@@ -206,6 +232,7 @@ function MainApp({ username }) {
 
   return (
     <div className="min-h-screen bg-paper">
+      <UpdateBanner />
       <TopBar username={username} links={linksQuery.data} onLogout={() => logoutMutation.mutate()} />
       <div className="px-7 py-5.5 pb-15">
         {schemaQuery.data && <StageBar statusOptions={statusOptions} rows={productsQuery.data ?? []} />}
@@ -239,6 +266,8 @@ function MainApp({ username }) {
 
       {modalOpen && schemaQuery.data && (
         <ProductModal
+          // A new key (after "Load latest version") remounts the form with fresh values.
+          key={editingRecord ? `${editingRecord.id}-${editingRecord.lastEditedAt}` : 'new'}
           schema={schemaQuery.data}
           record={editingRecord}
           onClose={() => {
@@ -250,6 +279,11 @@ function MainApp({ username }) {
           saving={createMutation.isPending || updateMutation.isPending}
           deleting={deleteMutation.isPending}
           errorMessage={modalError}
+          conflict={modalConflict}
+          onLoadLatest={loadLatestVersion}
+          onSaveAnyway={() =>
+            updateMutation.mutate({ id: editingRecord.id, data: updateMutation.variables.data, force: true })
+          }
         />
       )}
 

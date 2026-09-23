@@ -1,5 +1,6 @@
 import logging
 import mimetypes
+import re
 
 from django.conf import settings
 from django.http import HttpResponse
@@ -54,6 +55,8 @@ class ProductViewSet(viewsets.ViewSet):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except services.NotFoundError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except services.ConflictError as exc:
+            return Response({"detail": str(exc), "conflict": True}, status=status.HTTP_409_CONFLICT)
         return Response(ProductSerializer(product).data)
 
     def partial_update(self, request, pk=None):
@@ -221,6 +224,20 @@ class ProductImageFileView(APIView):
         # URLs carry ?v=<modified time>, so a changed photo gets a new URL.
         response["Cache-Control"] = "private, max-age=604800"
         return response
+
+
+class AppVersionView(APIView):
+    """Identifies the frontend build currently being served, so open pages
+    can notice a new version and offer to reload. The built index.html
+    references a content-hashed script name, which changes on every build."""
+
+    def get(self, request):
+        index = settings.FRONTEND_DIST / "index.html"
+        try:
+            match = re.search(r"assets/(index-[^\"]+\.js)", index.read_text(encoding="utf-8"))
+        except OSError:
+            match = None
+        return Response({"version": match.group(1) if match else None})
 
 
 class QuickLinksView(APIView):

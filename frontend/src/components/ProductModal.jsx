@@ -20,6 +20,9 @@ export function ProductModal({
   saving,
   deleting,
   errorMessage,
+  conflict,
+  onLoadLatest,
+  onSaveAnyway,
 }) {
   const isEdit = Boolean(record)
   const [view, setView] = useState('form')
@@ -150,6 +153,28 @@ export function ProductModal({
               {errorMessage && (
                 <div className="mb-4 rounded-md bg-[#fbeae5] px-3 py-2 text-[13px] font-semibold text-[#a13a2c]">
                   {errorMessage}
+                  {conflict && (
+                    <div className="mt-2 flex flex-wrap gap-2 font-normal">
+                      <button
+                        type="button"
+                        onClick={onLoadLatest}
+                        className="rounded-md bg-clay px-3 py-1.5 text-[12.5px] font-semibold text-white hover:bg-[#9c5518]"
+                      >
+                        Load latest version
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onSaveAnyway}
+                        disabled={saving}
+                        className="rounded-md border border-[#e0bdb0] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#a13a2c] hover:bg-[#fbeae5]"
+                      >
+                        Save mine anyway
+                      </button>
+                      <span className="self-center text-[11.5px] text-[#6b6656]">
+                        Loading the latest version discards your unsaved changes; saving anyway overwrites theirs.
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
               {dashboardSections.map((section) => (
