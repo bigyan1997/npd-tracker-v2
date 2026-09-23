@@ -42,7 +42,7 @@ export function ProductTable({ rows, fields, sortKey, sortDir, onSort, onOpen, o
           <tr>
             {before.map(renderSortableTh)}
             <th className={thClass}>Checklist</th>
-            <th className={thClass} title="📷 product photos · 🏷 nutrition label photos">Photos</th>
+            <th className={thClass} title="P = product photos · N = nutrition label photos">Photos</th>
             {after.map(renderSortableTh)}
             <th className={thClass} />
           </tr>

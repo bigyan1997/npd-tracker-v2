@@ -70,9 +70,9 @@ function PhotosCell({ row }) {
       </td>
     )
   }
-  const part = (n, icon, word) => (
+  const part = (n, letter, word) => (
     <span className={n === 0 ? 'font-semibold text-[#b45309]' : 'text-[#4a463a]'}>
-      {icon} {n === 0 ? '—' : n}
+      <span className="text-[10.5px] font-bold text-[#9a9484]">{letter}</span> {n === 0 ? '—' : n}
       <span className="sr-only"> {plural(n, word)}</span>
     </span>
   )
@@ -82,9 +82,9 @@ function PhotosCell({ row }) {
     (c.nutrition === 0 ? ' — no nutrition label yet' : '')
   return (
     <td className="px-3 py-2.5 text-[13px] whitespace-nowrap" title={title}>
-      {part(c.product, '📷', 'product photo')}
+      {part(c.product, 'P', 'product photo')}
       <span className="mx-1 text-[#c9c4b3]">·</span>
-      {part(c.nutrition, '🏷', 'nutrition label')}
+      {part(c.nutrition, 'N', 'nutrition label')}
     </td>
   )
 }
