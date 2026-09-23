@@ -88,8 +88,7 @@ function ComboField({ value, onChange, suggestions, placeholder, onAddNew, onDel
         {onAddNew && (
           <button
             type="button"
-            title={alreadyExists ? 'Already a known supplier' : 'Add a new supplier'}
-            disabled={alreadyExists}
+            title="Add a new supplier"
             onClick={() => {
               setOpen(false)
               setAddDialogOpen(true)
@@ -103,7 +102,10 @@ function ComboField({ value, onChange, suggestions, placeholder, onAddNew, onDel
       {addDialogOpen && onAddNew && (
         <AddSuggestionDialog
           title="Add Supplier"
-          initialValue={value}
+          // Prefill only a name that isn't in the list yet; when the box
+          // already holds a known supplier, start blank for a new one.
+          initialValue={alreadyExists ? '' : value}
+          existing={suggestions}
           onClose={() => setAddDialogOpen(false)}
           onConfirm={async (name) => {
             await onAddNew(name)

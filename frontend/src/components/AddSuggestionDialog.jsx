@@ -1,8 +1,9 @@
 import { useState } from 'react'
 
-export function AddSuggestionDialog({ title, initialValue, onConfirm, onClose }) {
+export function AddSuggestionDialog({ title, initialValue, existing = [], onConfirm, onClose }) {
   const [name, setName] = useState(initialValue)
   const [status, setStatus] = useState('idle')
+  const match = existing.find((s) => s.toLowerCase() === name.trim().toLowerCase())
 
   const handleAdd = async () => {
     if (!name.trim() || status === 'saving') return
@@ -39,6 +40,9 @@ export function AddSuggestionDialog({ title, initialValue, onConfirm, onClose })
           placeholder="Name"
           className="w-full rounded-md border border-line bg-[#fdfcf9] px-2.5 py-2 text-[13.5px]"
         />
+        {match && status !== 'error' && (
+          <div className="mt-1.5 text-[11.5px] text-off">"{match}" is already in the list — Add will just select it.</div>
+        )}
         {status === 'error' && (
           <div className="mt-1.5 text-[11.5px] font-semibold text-[#a13a2c]">Could not add — try again.</div>
         )}
