@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { logout, me } from './api/auth'
 import { uploadProductImage } from './api/images'
@@ -34,6 +34,31 @@ function App() {
   return <MainApp username={meQuery.data.username} />
 }
 
+function ResultCount({ count, search, filtered, onClear }) {
+  const noun = count === 1 ? 'product' : 'products'
+  return (
+    <div className="mb-2.5 flex items-center gap-2 text-[12.5px] text-[#6b6656]" aria-live="polite">
+      {filtered ? (
+        <>
+          <span>
+            <strong className={count === 0 ? 'text-[#a13a2c]' : 'text-moss-dark'}>
+              {count} {noun} found
+            </strong>
+            {search.trim() && <> for &ldquo;{search.trim()}&rdquo;</>}
+          </span>
+          <button onClick={onClear} className="text-clay underline-offset-2 hover:underline">
+            Clear
+          </button>
+        </>
+      ) : (
+        <span>
+          {count} {noun}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function MainApp({ username }) {
   const queryClient = useQueryClient()
   const { toast, show } = useToast()
@@ -60,6 +85,9 @@ function MainApp({ username }) {
     // Everyone shares one login on several devices — keep the list current
     // without a manual refresh. Open edit forms aren't affected.
     refetchInterval: 20 * 1000,
+    // Keep showing the last results while a new search loads, instead of
+    // flashing "0 products found" on every keystroke.
+    placeholderData: keepPreviousData,
   })
 
   const statusOptions = useMemo(
@@ -83,6 +111,14 @@ function MainApp({ username }) {
       return String(av || '').localeCompare(String(bv || '')) * dir
     })
   }, [productsQuery.data, schemaQuery.data, sortKey, sortDir, photos])
+
+  const isFiltered = Boolean(search.trim() || status || active || photos)
+  const clearFilters = () => {
+    setSearch('')
+    setStatus('')
+    setActive('')
+    setPhotos('')
+  }
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -251,9 +287,19 @@ function MainApp({ username }) {
           onShowDeleted={() => setDeletedModalOpen(true)}
           onAdd={openNew}
         />
+        {productsQuery.data && (
+          <ResultCount
+            count={sortedRows.length}
+            search={search}
+            filtered={isFiltered}
+            onClear={clearFilters}
+          />
+        )}
         {schemaQuery.data && (
           <ProductTable
             rows={sortedRows}
+            filtered={isFiltered}
+            onClearFilters={clearFilters}
             fields={schemaQuery.data.fields}
             sortKey={sortKey}
             sortDir={sortDir}

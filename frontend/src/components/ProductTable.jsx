@@ -8,13 +8,26 @@ import { ProductRow } from './ProductRow'
 const BEFORE_PIPELINE = ['date', 'product', 'supplier', 'status', 'active']
 const AFTER_PIPELINE = ['imagesLocation', 'nutritionalsReceived', 'nutritionalsACP', 'cost']
 
-export function ProductTable({ rows, fields, sortKey, sortDir, onSort, onOpen, onDelete }) {
+export function ProductTable({ rows, fields, filtered, onClearFilters, sortKey, sortDir, onSort, onOpen, onDelete }) {
   const dashboardByKey = new Map(fields.filter((f) => f.dashboard && !f.pipeline).map((f) => [f.key, f]))
   const before = BEFORE_PIPELINE.map((k) => dashboardByKey.get(k)).filter(Boolean)
   const after = AFTER_PIPELINE.map((k) => dashboardByKey.get(k)).filter(Boolean)
   const columns = [...before, ...after]
   const pipelineFields = fields.filter((f) => f.pipeline)
 
+  if (rows.length === 0 && filtered) {
+    return (
+      <div className="py-15 text-center text-off">
+        <h3 className="mb-1.5 text-moss-dark">0 products found</h3>
+        <div>
+          Nothing matches your search or filters.{' '}
+          <button onClick={onClearFilters} className="text-clay underline">
+            Clear search and filters
+          </button>
+        </div>
+      </div>
+    )
+  }
   if (rows.length === 0) {
     return (
       <div className="py-15 text-center text-off">
