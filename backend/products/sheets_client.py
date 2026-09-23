@@ -27,6 +27,14 @@ DRIVE_FOLDER_PREFIX = "https://drive.google.com/drive/folders/"
 # How far right to look for / clear leftover columns from an older layout.
 EXTRA_COLS_END = _col_letter(len(HEADER_ROW) + 20)
 
+SEARCH_TAB = "Search"
+# What the Search tab's box looks in: the app's own search fields plus status/features.
+SEARCH_TAB_KEYS = [*schema.SEARCH_KEYS, "status", "features"]
+
+
+def _field_col(key):
+    return _col_letter(2 + schema.FIELD_KEYS.index(key))  # +1 RecordID column, +1 one-based
+
 
 class SheetsClient:
     def __init__(self):
@@ -78,6 +86,91 @@ class SheetsClient:
                 valueInputOption="RAW",
                 body={"values": [HEADER_ROW]},
             ).execute()
+            # Column positions may have moved — point the filter and the
+            # Search tab at the new layout.
+            self.setup_search()
+
+    def setup_search(self):
+        """Make the mirror easy to search (safe to re-run):
+        - data tab: frozen, bold header row with filter buttons;
+        - a separate "Search" tab: type in the yellow box and every product
+          whose name/supplier/codes/status/features match is listed.
+        The app only ever writes the data tab's rows, so neither is undone."""
+        meta = self.service.spreadsheets().get(
+            spreadsheetId=self.sheet_id, fields="sheets.properties"
+        ).execute()
+        by_title = {s["properties"]["title"]: s["properties"]["sheetId"] for s in meta["sheets"]}
+        if SEARCH_TAB not in by_title:
+            reply = self.service.spreadsheets().batchUpdate(
+                spreadsheetId=self.sheet_id,
+                body={"requests": [{"addSheet": {"properties": {"title": SEARCH_TAB, "index": 0}}}]},
+            ).execute()
+            by_title[SEARCH_TAB] = reply["replies"][0]["addSheet"]["properties"]["sheetId"]
+        data_gid, search_gid = by_title[self.tab], by_title[SEARCH_TAB]
+        ncols = len(HEADER_ROW)
+
+        src = f"'{self.tab}'"
+        haystack = '&" "&'.join(f"{src}!{_field_col(k)}2:{_field_col(k)}" for k in SEARCH_TAB_KEYS)
+        match = f"ISNUMBER(SEARCH(TRIM($B$1), {haystack}))"
+        self._values.clear(spreadsheetId=self.sheet_id, range=f"{SEARCH_TAB}!A1:{EXTRA_COLS_END}").execute()
+        self._values.update(
+            spreadsheetId=self.sheet_id,
+            range=f"{SEARCH_TAB}!A1:B5",
+            valueInputOption="USER_ENTERED",
+            body={"values": [
+                ["Search:", ""],
+                ["", f'=IF(LEN(TRIM($B$1))=0, "Type a product, supplier, code, status or feature in the yellow box", '
+                     f'IFERROR(ROWS(FILTER({src}!A2:A, {match})), 0) & " products found")'],
+                ["", ""],
+                [f"={{{src}!A1:{LAST_COL}1}}", ""],
+                [f'=IF(LEN(TRIM($B$1))=0, "", IFERROR(FILTER({src}!A2:{LAST_COL}, {match}), "No products found"))', ""],
+            ]},
+        ).execute()
+
+        bold = {"userEnteredFormat": {"textFormat": {"bold": True}}}
+        self.service.spreadsheets().batchUpdate(
+            spreadsheetId=self.sheet_id,
+            body={"requests": [
+                # Data tab: frozen bold header with filter buttons.
+                {"updateSheetProperties": {
+                    "properties": {"sheetId": data_gid, "gridProperties": {"frozenRowCount": 1}},
+                    "fields": "gridProperties.frozenRowCount"}},
+                {"repeatCell": {"range": {"sheetId": data_gid, "startRowIndex": 0, "endRowIndex": 1},
+                                "cell": bold, "fields": "userEnteredFormat.textFormat.bold"}},
+                {"setBasicFilter": {"filter": {"range": {
+                    "sheetId": data_gid, "startRowIndex": 0, "startColumnIndex": 0, "endColumnIndex": ncols}}}},
+                # Search tab: label, yellow input box, frozen results header.
+                {"updateSheetProperties": {
+                    "properties": {"sheetId": search_gid, "gridProperties": {"frozenRowCount": 4}},
+                    "fields": "gridProperties.frozenRowCount"}},
+                {"repeatCell": {
+                    "range": {"sheetId": search_gid, "startRowIndex": 0, "endRowIndex": 1,
+                              "startColumnIndex": 0, "endColumnIndex": 1},
+                    "cell": {"userEnteredFormat": {"textFormat": {"bold": True, "fontSize": 12},
+                                                   "horizontalAlignment": "RIGHT"}},
+                    "fields": "userEnteredFormat(textFormat,horizontalAlignment)"}},
+                {"repeatCell": {
+                    "range": {"sheetId": search_gid, "startRowIndex": 0, "endRowIndex": 1,
+                              "startColumnIndex": 1, "endColumnIndex": 4},
+                    "cell": {"userEnteredFormat": {
+                        "backgroundColor": {"red": 1, "green": 0.95, "blue": 0.6},
+                        "textFormat": {"bold": True, "fontSize": 12}}},
+                    "fields": "userEnteredFormat(backgroundColor,textFormat)"}},
+                {"mergeCells": {"range": {"sheetId": search_gid, "startRowIndex": 0, "endRowIndex": 1,
+                                          "startColumnIndex": 1, "endColumnIndex": 4},
+                                "mergeType": "MERGE_ALL"}},
+                {"repeatCell": {
+                    "range": {"sheetId": search_gid, "startRowIndex": 1, "endRowIndex": 2},
+                    "cell": {"userEnteredFormat": {"textFormat": {"italic": True}}},
+                    "fields": "userEnteredFormat.textFormat.italic"}},
+                {"repeatCell": {
+                    "range": {"sheetId": search_gid, "startRowIndex": 3, "endRowIndex": 4},
+                    "cell": {"userEnteredFormat": {
+                        "textFormat": {"bold": True},
+                        "backgroundColor": {"red": 0.93, "green": 0.92, "blue": 0.88}}},
+                    "fields": "userEnteredFormat(textFormat,backgroundColor)"}},
+            ]},
+        ).execute()
 
     def list_rows(self):
         data = self._values.get(

@@ -326,7 +326,9 @@ class SheetsHeaderTests(TestCase):
         client.sheet_id, client.tab = "sheet", "NPD"
         client.service = mock.MagicMock()
         sheets = client.service.spreadsheets.return_value
-        sheets.get.return_value.execute.return_value = {"sheets": [{"properties": {"title": "NPD"}}]}
+        sheets.get.return_value.execute.return_value = {
+            "sheets": [{"properties": {"title": "NPD", "sheetId": 0}}, {"properties": {"title": "Search", "sheetId": 9}}]
+        }
         sheets.values.return_value.get.return_value.execute.return_value = {"values": [existing_header]}
         return client, sheets.values.return_value
 
@@ -336,8 +338,12 @@ class SheetsHeaderTests(TestCase):
         old = HEADER_ROW[:-3] + ["Create Product into Qblue"] + HEADER_ROW[-3:]
         client, values = self.fake_client(old)
         client.ensure_tab_and_header()
-        values.clear.assert_called_once()
-        self.assertEqual(values.update.call_args.kwargs["body"], {"values": [HEADER_ROW]})
+        header_write = values.update.call_args_list[0].kwargs
+        self.assertEqual(header_write["body"], {"values": [HEADER_ROW]})
+        # ...and the filter/Search tab are rebuilt for the new column layout.
+        search_write = values.update.call_args_list[1].kwargs
+        self.assertTrue(search_write["range"].startswith("Search!"))
+        self.assertIn("FILTER('NPD'!A2:", search_write["body"]["values"][4][0])
 
     def test_current_header_is_left_alone(self):
         from .sheets_client import HEADER_ROW
