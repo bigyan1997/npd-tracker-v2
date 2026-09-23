@@ -2,52 +2,47 @@
 
 New Product Development tracker for Achieve Cafe Provisions. Django + DRF
 backend, Postgres database, React + Vite + Tailwind frontend (plain
-JavaScript). A from-scratch rewrite of the original NPD Tracker (`../npd-tracker`),
-built to support real photo uploads — something the original's Google-Sheets-backed
-design couldn't do.
+JavaScript), with product photos stored in Google Drive and a searchable
+Google Sheet copy of every product.
 
-**Status: local development only.** This has not been deployed anywhere yet —
-see "Running it locally" below. The original app is still what staff actually
-use day to day.
+A from-scratch rewrite of the original, Google-Sheets-backed NPD Tracker
+(v1, retired in September 2026), built to support real photo storage.
+
+**Status: in use.** It runs on an office Windows PC (Waitress on port 8001),
+reachable on the office LAN and from home over Tailscale, kept running by a
+self-restarting launcher and a keep-alive scheduled task. Host-specific
+details (addresses, credentials, IDs) are in `DEPLOYMENT_NOTES.md` on that
+machine — deliberately not in this public repo. Staff-facing instructions are
+in [`USAGE_GUIDE.md`](USAGE_GUIDE.md); design decisions and history are in
+[`NOTES.md`](NOTES.md).
 
 ## Architecture
 
-- **`backend/`** — Django project. Product data lives in **Postgres**, not
-  Google Sheets. A background sync pushes every change to a Google Sheet as a
-  read-only mirror people can glance at, but the Sheet is not the source of
-  truth — Postgres is.
-- **`frontend/`** — React + Vite + Tailwind SPA, plain JavaScript (no
-  TypeScript). In production it would be built and served by Django directly,
-  same as the original app.
+- **`backend/`** — Django project. Product data lives in **Postgres**, which
+  is the source of truth.
+- **Google Sheet mirror** — every product change is pushed (best-effort, on a
+  background thread) to a Google Sheet as a read-only copy. The sheet has a
+  **Search** tab and filter buttons. A failed push never affects the real
+  save.
+- **Google Drive photos** — photos live in a Google Drive folder tree
+  (`NPD Tracker Photos/<Product>/Product photos|Nutrition labels`), and
+  **Drive is the source of truth for photos**: staff can add/move/delete
+  photos directly in Drive and the app syncs them in (on opening a product,
+  and every 2 minutes in the background). The app serves photos itself
+  (cached thumbnails), so app-only users need no Drive access.
+- **`frontend/`** — React + Vite + Tailwind SPA, plain JavaScript. Built into
+  `frontend/dist/` and served by Django/Whitenoise.
 
 ## One-time setup
 
 ### 1. Postgres
-
-Install Postgres locally (or point at an existing instance) and create a
-database and a role for the app:
 
 ```sql
 CREATE ROLE npd_tracker_v2 WITH LOGIN PASSWORD 'choose-a-password';
 CREATE DATABASE npd_tracker_v2 OWNER npd_tracker_v2;
 ```
 
-### 2. Google Sheets mirror (optional)
-
-The app works fine with this unconfigured — the Sheets sync just silently
-does nothing until it's set up. To enable it:
-
-1. In [Google Cloud Console](https://console.cloud.google.com/), reuse the
-   existing service account from the original app (or create a new one and
-   enable the Sheets API for it).
-2. Save its key file as `backend/secrets/service-account.json` (gitignored —
-   never commit it).
-3. Create a new Google Sheet and **share it** with the service account's
-   email as **Editor**.
-4. Copy the Sheet ID from its URL:
-   `https://docs.google.com/spreadsheets/d/`**`THIS_PART`**`/edit`
-
-### 3. Backend
+### 2. Backend
 
 ```
 cd backend
@@ -57,15 +52,45 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-Edit `.env`: set `DB_PASSWORD` (from step 1), a real `DJANGO_SECRET_KEY`, and
-`NPD_SHEET_ID` if you set up the Sheets mirror.
+Edit `.env`: set `DB_PASSWORD`, a real `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=False`
+in production, and the hosts/origins the app is reached on
+(`DJANGO_ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`). Then:
 
 ```
 python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 4. Frontend
+### 3. Google Sheets mirror (optional)
+
+The app works without it — the sync silently does nothing until configured.
+
+1. In Google Cloud Console, create (or reuse) a service account with the
+   Sheets API enabled; save its key as `backend/secrets/service-account.json`
+   (gitignored).
+2. Create a Google Sheet, **share it with the service account's email as
+   Editor**, and put its ID (from the URL) in `NPD_SHEET_ID`.
+3. `python manage.py sheets_push_all` then `python manage.py sheets_setup_search`.
+
+### 4. Google Drive photo storage (optional)
+
+Without it, uploads are stored on local disk under `backend/media/`.
+
+The photo-owning Google account is a personal (non-Workspace) account, which
+a service account can't write to — so the app signs in *as* that account
+with OAuth:
+
+1. In the same Cloud project: enable the **Google Drive API**; on **Google
+   Auth Platform**, fill in Branding and set the app to **In production**
+   (in "Testing", Google expires the sign-in after 7 days).
+2. Create an OAuth client of type **Desktop app**, download its JSON to
+   `backend/secrets/drive-oauth-client.json` (gitignored).
+3. `python manage.py drive_authorize` — opens a browser; sign in as the
+   account that should own the photos and allow access. This writes
+   `backend/secrets/drive-token.json` (gitignored); the app switches to Drive
+   storage as soon as that file exists (restart the server).
+
+### 5. Frontend
 
 ```
 cd frontend
@@ -73,96 +98,94 @@ npm install
 npm run build
 ```
 
-This produces `frontend/dist/`, which Django serves automatically in
-production.
+## Running it
 
-## Running it locally
+**Production (the office PC):** `run_server.bat` starts Waitress on
+`0.0.0.0:8001` and restarts it if it ever stops; a Startup-folder shortcut
+runs it at login, and the scheduled task "NPD Tracker v2 Keep Alive"
+(`keep_alive.vbs` → `keep_alive.ps1`) restarts it if it stops answering.
 
-Two terminals, hot reload on both sides:
+**Deploying a change:**
+1. Backend-only change → restart the server.
+2. Frontend change → `npm run build`, then `python manage.py collectstatic
+   --noinput`, then restart the server — **all three together**: the build
+   immediately points `index.html` at new asset files the running server
+   doesn't serve until collectstatic + restart. Open pages then show a
+   "new version available — Reload" banner within ~5 minutes.
+
+**Development:** two terminals, hot reload on both sides:
 
 ```
 cd backend  &&  .venv\Scripts\activate  &&  python manage.py runserver 127.0.0.1:8010
 cd frontend &&  npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open `http://localhost:5173` (Vite proxies `/api` and `/media` to port 8010).
 
-(Port 8010 rather than Django's default 8000 was just to avoid colliding with
-the original app's dev server if both are running at once — change it back to
-whatever's free on your machine, just keep `vite.config.js`'s proxy target in
-sync.)
+## Management commands
+
+| Command | What it does |
+|---|---|
+| `drive_authorize` | One-time Google sign-in for Drive photo storage |
+| `sheets_push_all` | Re-send every product to the Google Sheet |
+| `sheets_setup_search` | (Re)build the sheet's filter buttons and Search tab |
+
+## Tests
+
+```
+python manage.py test products
+```
+
+The app's Postgres role can't create databases, so run tests on SQLite via a
+small settings module kept outside the repo:
+
+```python
+# test_sqlite_settings.py
+from npd_tracker.settings import *  # noqa
+DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
+```
+
+`DJANGO_SETTINGS_MODULE=test_sqlite_settings python manage.py test products`
+(with that file's folder on `PYTHONPATH`). Tests use an in-memory fake Google
+Drive and never touch the real Google Sheet (`NO_SHEETS`).
 
 ## Field schema
 
 `backend/products/fields_schema.py` is the single source of truth for every
 product field — key, label, type, section, and display flags. The frontend's
-entire form and table are generated from this at runtime (`GET /api/schema/`)
-— **adding, renaming, or reflagging a field is a backend-only edit**, no
-frontend code changes needed. This was true of the original app too and is
-carried over deliberately.
+form and table are generated from it at runtime (`GET /api/schema/`), so
+**relabelling or reflagging a field is a backend-only edit**. Adding or
+removing a field also needs a model change + migration.
 
-- **`required`** — enforced both client-side and server-side
-  (`services.py: _validate_required`). Currently: Date, ACP Product Name,
-  Status, Active, Supplier.
-- **`dashboard`** — controls what shows in the main app (table column +
-  edit form). Fields without it are hidden from the main app but remain
-  editable via Django Admin (`/admin/`).
-- **`pipeline`** — Go-to-Market checklist fields fold into one compact
-  "Checklist" column of small colored chips instead of their own columns.
-- **`tableLabel`** / **`chipLabel`** — short display names for the table
-  header / checklist chip, separate from the full `label` used in the form.
+- **`required`** — enforced client- and server-side. Currently: Date, ACP
+  Product Name, Status, Active, Supplier.
+- **`dashboard`** — shown in the add/edit form (every field except the
+  legacy "Original Images Location"). Hidden fields stay editable in Django
+  admin. Table columns are a fixed list in `ProductTable.jsx`.
+- **`pipeline`** — Go-to-Market checklist fields, shown as one compact
+  "Checklist" column of chips.
+- **`tableLabel`** / **`chipLabel`** — short names for the table header /
+  checklist chip.
 
-Unlike the original app, there's **no positional-column constraint** here —
-Postgres uses named columns, so adding/removing/reordering a field is just a
-normal model change + migration. The Sheets *mirror* still writes columns by
-a fixed order (`products/sheets_client.py`), but that's a one-way, disposable
-export — it doesn't constrain the real schema the way the original app's live
-Sheet did.
+The Google Sheet's columns follow the order of `FIELDS`; the sheet's header
+row is rewritten automatically whenever it no longer matches.
 
 ## Features
 
-Everything the original app has, rebuilt on the new stack, plus real image
-uploads:
-
-- **CRUD** with the same confirm-before-delete pattern.
-- **Image galleries** — a gallery of product photos and a separate gallery of
-  nutrition-label photos per product, added from the edit screen (a product
-  has to be saved once before photos can be attached to it). No thumbnails or
-  cropping — just capped at 10MB per file and validated as a real image.
-- **CSV Import** — same two-phase preview-then-commit flow, same
-  label-or-key column matching, same lenient-warnings-but-blocking-errors
-  rules. Export CSV's column order doubles as the import template.
-- **Supplier field** — a custom autocomplete dropdown, same UX as the
-  original (locks once it matches an existing name, `+` to add a new one
-  inline, delete-with-confirm per entry, blocked if still in use by a
-  product) — but now backed by a real foreign key instead of a soft/free-text
-  list.
-- **Sortable columns**, **"stuck in status" alerts** (30+ days in a status
-  that isn't an end state), **restore a deleted product**, and **in-app
-  audit history** — all present, same behavior as the original.
-- **Server-side validation** for required fields and numeric fields, same as
-  before.
-
-## What's different under the hood (for whoever picks this up next)
-
-- **Yes/No fields are real booleans** in the database now, not `"Y"`/`"N"`
-  text — only converted to those strings at the CSV-export and Sheets-mirror
-  boundaries, where people still expect to see `Y`/`N`.
-- **Supplier is a real foreign key** with referential integrity, not a
-  free-text field paired with a separate curated list.
-- **"Stuck in status" is a single indexed column read** (`status_changed_at`
-  on the product itself), not an aggregate query over the audit log.
-- **The Google Sheet is a mirror, not the database.** Every write to
-  Postgres triggers a best-effort push to the Sheet afterward — if that push
-  fails (network issue, permissions problem, whatever), the real save in
-  Postgres is completely unaffected. The app never depends on Sheets being
-  reachable.
-
-## Notes
-
-- All Sheets access uses a single service account — nobody signs into
-  Google individually for this to work.
-- Every create/update/delete writes a full field-level entry into the local
-  audit log (visible at `/admin/` or via the in-app History view).
-- Staff logins are separate from the Sheets connection and exist purely so
-  changes can be attributed to a person.
+- **Products**: add/edit/delete with confirmation, restore recently deleted
+  products, full field-level **History** per product, sortable columns,
+  "stuck in status" alerts (30+ days in a non-final status), CSV import
+  (preview first) and export.
+- **Search & filters**: search across name, supplier and codes with a live
+  "N products found" count; status, active and missing-photo filters.
+- **Suppliers**: autocomplete with add, **rename** (updates every product,
+  logged in History) and delete (blocked while in use).
+- **Photos**: product and nutrition-label galleries stored in Google Drive,
+  per-product "Open in Google Drive" links, photo counts per product in the
+  table, delete warnings, cached thumbnails, HEIC support via Drive previews.
+- **Shared-login safety** (all staff use one account): the product list
+  auto-refreshes every 20 s; a save is refused (HTTP 409, "Load latest
+  version" / "Save mine anyway") if someone else saved that product since it
+  was opened; a banner offers a reload after a new deploy.
+- **Google Sheet copy**: auto-updated, with an "Open photos folder" link per
+  product, a Search tab and filter buttons.

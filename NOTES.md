@@ -1,6 +1,6 @@
 # NPD Tracker v2 — Project Notes
 
-Running notes on why this project exists, what's been decided, and what state it's in. Not a setup guide (that belongs in a future README) — this is context for whoever picks this project up next.
+Running notes on why this project exists, what's been decided, and what state it's in. Not a setup guide (see `README.md`; staff instructions are in `USAGE_GUIDE.md`) — this is context for whoever picks this project up next.
 
 ## Why v2 exists
 
@@ -8,19 +8,17 @@ v1 (`../npd-tracker`) stores actual product data in Google Sheets, not a real da
 
 Rather than bolt image storage onto the Sheets-backed architecture, v2 is a from-scratch rewrite on **Postgres as the real source of truth**, with a **one-way Postgres → Google Sheets mirror sync** (push-only, best-effort) so the team can still glance at a familiar spreadsheet. People sometimes edit the old sheet directly — the mirror doesn't handle that; a manual edit to the mirror sheet may get silently overwritten on the next sync. Accepted tradeoff, not a bug.
 
-Both v1 and v2 exist side by side right now. **v1 is still the one actually deployed for staff.** v2 is not deployed anywhere yet — local dev only.
+v1 and v2 briefly ran side by side (ports 8000 / 8001). On **2026-09-24 v1 was retired and removed** at the user's request — v2 is the only version now. All of v1's products already existed in v2; a zip backup of v1 is kept on the host PC (see `DEPLOYMENT_NOTES.md`).
 
 ## Stack
 
 Django + DRF backend, **Postgres** (not SQLite/Sheets), Tailwind CSS, Vite + React in **plain JavaScript** — TypeScript was deliberately dropped for v2, unlike v1.
 
-## Status (2026-09-22)
+## Status (2026-09-24)
 
-Backend: fully built and verified end-to-end against real Postgres — CRUD, dual auth (Google Sign-In + username/password), image upload, audit trail/history/restore, CSV import, and the live Sheets mirror sync were all tested via real HTTP requests, not just code review.
+**In use by staff**, deployed on the office PC (Waitress, port 8001), reachable on the office LAN and from home via Tailscale, and kept always on (see *Infra*). Everyone signs in with **one shared tracker login** — see *Shared-login design* below for what that forced.
 
-Frontend: fully ported to plain JS, builds cleanly (`npm run build`), dev server + API proxy verified working. **Not yet visually tested in a browser** — no browser automation tool was available, so the actual UI needs a human to click through it.
-
-No production deployment exists for v2 — no Tailscale, no Windows service, no CI/CD. That's separate future work.
+Backend verified end-to-end against real Postgres; 19 automated tests (`products/tests.py`) cover Drive photos, supplier rename, edit conflicts and the Sheets header/search logic. Most UI changes have been checked by the user in the browser as they went live, but there's no automated browser testing.
 
 ## Architecture decisions that differ from v1 (all deliberate)
 
@@ -37,7 +35,27 @@ No production deployment exists for v2 — no Tailscale, no Windows service, no 
 - **Restore-as-new-record** and the **audit log's denormalized-survives-deletion design** (`record_id`/`product_name_snapshot` stored as plain values, not just an FK, so history/restore work even after the product itself is deleted) were carried over unchanged from v1.
 - **Sheets sync direction flips**: v1 read/wrote its sheet live on every request (the sheet *was* the database). v2's Sheets calls are a best-effort push *after* the Postgres write commits, wrapped so a Sheets API failure can never block or roll back the real write. Proven live: a product save returned success while the Sheets push failed in the background with a permissions error, and the retry succeeded once sharing was fixed.
 
-**Known gap, not fixed:** restoring a deleted product creates a new record with a new, empty photo folder — its old photos stay in the trashed folder in Drive's Bin (30 days) and have to be moved back by hand.
+## Added 2026-09-24
+
+- **Shared-login design.** All staff use one tracker login, on several devices at once, so:
+  - the product list refetches every 20 s (`refetchInterval`), with `keepPreviousData` so search results don't flash empty while typing; open edit forms are never overwritten;
+  - **optimistic concurrency**: saves send `expectedUpdatedAt` (the `lastEditedAt` the form was opened with); `services.update_product` raises `ConflictError` → HTTP 409 if the product changed since, and the form offers "Load latest version" / "Save mine anyway" (the latter omits the timestamp). Supplier renames bump `updated_at` on affected products so a stale form can't save the old supplier name back (which would silently recreate it via `get_or_create`);
+  - `GET /api/version/` returns the built JS asset name; `UpdateBanner` polls it every 5 min and offers a reload (never auto-reloads — could lose a half-filled form);
+  - History can't tell people apart. Per-person tracker logins were suggested; the user chose not to for now.
+- **Supplier rename** (`PATCH /api/suppliers/ {name, newName}`, pencil icon in the supplier dropdown): renames the `Supplier` row, adds a History entry per affected product, re-pushes them to the Sheet. Renaming onto another existing supplier is refused (no silent merging); case-only renames are allowed. The **+** button now always opens the Add Supplier dialog, even when a supplier is already selected.
+- **Photo indicators**: Photos column in the table (`P n · N n`, missing categories in orange, "No photos" badge), a missing-photos filter, counts in the gallery headings and an empty-gallery hint linking to the product's Drive folder. No minimum photo count is enforced — only a category with zero photos is flagged.
+- **Header links** to the Google Sheet and the Drive photos root folder (`GET /api/links/`, built from settings — no IDs in the frontend).
+- **Search results count** ("N products found" / "0 products found" with Clear) and a filtered empty state distinct from the empty-tracker one.
+- **Google Sheet fixes**: the header row was only ever written once, so after fields were renamed/removed every column from AF onward sat under the wrong heading. `ensure_tab_and_header` now rewrites the header whenever it differs and clears leftover columns. `LastEditedAt` is written in Sydney time.
+- **Tests must never touch the real Sheet**: the test settings read the real `.env`, and an early test run deleted a real sheet row (restored with `sheets_push_all`). All test classes are now wrapped in `NO_SHEETS`.
+
+## Known gaps / open items
+
+- Restoring a deleted product creates a new record with a new, empty photo folder — its old photos stay in the trashed folder in Drive's Bin (30 days) and have to be moved back by hand.
+- **CSV export** ignores the on-screen filters/sort and always comes out newest-date-first; the user was asked whether it should match the screen or go by Record ID — not decided yet.
+- **Checklist redesign proposed, not built**: replace the cryptic NR/NC/ZB/BI/BS/IW/B2B chips with a progress bar + "Next: …" column and a tick-box checklist card in the form. Waiting on the user to confirm the step order and whether the two B2B image steps are sequential or either/or. Also planned with it: warn when "Nutritionals Received" is ticked but no nutrition-label photo exists.
+- Filters set with the ▼ buttons on the Sheet are shared by everyone (one shared Google account).
+- After an unattended Windows restart the app is down until someone logs in (fix documented in `DEPLOYMENT_NOTES.md`; needs the Microsoft-account password).
 
 **Tests:** `products/tests.py` covers the Drive photo flow against an in-memory fake Drive. The `npd_tracker_v2` Postgres role can't create databases, so run them on SQLite via a throwaway settings module outside the repo, e.g. a `test_sqlite_settings.py` containing `from npd_tracker.settings import *` plus `DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}`, then `DJANGO_SETTINGS_MODULE=test_sqlite_settings python manage.py test products` with that file's folder on `PYTHONPATH`.
 
@@ -46,7 +64,8 @@ No production deployment exists for v2 — no Tailscale, no Windows service, no 
 - "Loaded into Qblue Products & Supplier Price List" → renamed to **"Created in ZeaBlue Products and Supplier Price List"**.
 - "Create Product into Qblue" field **deleted entirely** (column dropped from Postgres, not just hidden).
 - Pipeline checklist short codes: **ZB** (ZeaBlue), **BI** (B2B image, new symbol), **BS** (B2B image, symbol swap), **IW** (Print image), **B2B** (unchanged), plus **NR**/**NC** for Nutritionals Received / Nutritionals Created into ACP Format, which were moved from separate table columns into the checklist chip group.
-- "Images" (the old `imagesLocation` text field) removed from the dashboard — still editable via Django Admin, but no longer shown in the main table or add/edit form now that real photo uploads exist.
+- "Images" (the old `imagesLocation` text field) removed from the dashboard — still editable via Django Admin, but no longer shown in the main table or add/edit form now that real photo uploads exist. Its old typed values stay in Postgres; the Sheet shows the product's Drive folder link in that column instead.
+- **Every other field is now in the add/edit form** (2026-09-24). Seventeen fields — tasting/supplier descriptions, shelf life, features, units per box, supplier dates/codes/names, sample received, dimensions, weight, sell prices, ACP/Qblue/B2B names, image note — had only been editable in Django admin; they were switched on via the `dashboard` flag. `FIELDS` order was deliberately left unchanged, because the Google Sheet's columns follow it.
 
 ## Infra
 
