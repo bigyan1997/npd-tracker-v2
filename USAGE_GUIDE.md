@@ -48,7 +48,7 @@ top there are coloured boxes showing how many products are in each stage
   product ready to sell. Green means done, grey means not done yet. Hover
   your mouse over them to see what each one means.
 - **Photos** — shows how many photos each product has:
-  - `P 2 · N 1` = 2 product photos and 1 nutrition label photo.
+  - `P 2 · N 1` = 2 product photos and 1 nutrition label (photo or PDF).
   - A dash in orange (e.g. `N —`) means that kind of photo is still missing.
   - **No photos** (yellow) means nothing has been uploaded yet.
 - **⚠ Stuck** — if a product has been sitting in the same status for a month
@@ -69,7 +69,10 @@ click **Reload**.
 2. Fill in the boxes. The ones with a little red star (*) must be filled in —
    the rest you can leave blank and fill in later.
 3. For **Date** boxes: click them to open a little calendar and pick a date.
-4. Click **Save Product**.
+4. **Planned Launch** (in the Overview section) is a free-text box for launch
+   plans — target month, channels, promotions, anything. It also shows as a
+   column in the product list (hover over it to read the full text).
+5. Click **Save Product**.
 
 **The Supplier box:**
 - Click the box to see the list of suppliers, and click one to pick it.
@@ -97,7 +100,10 @@ have *not* been saved yet. You can:
 
 Every product has two kinds of photos:
 - **Product Photos** — regular pictures of the product.
-- **Nutrition Label Photos** — pictures of the nutrition label.
+- **Nutrition Labels** — photos of the nutrition label, **or a PDF** (e.g. a
+  nutrition panel the supplier emailed). PDFs show a small preview of the
+  first page with a red **PDF** badge; click it to open the PDF. (PDFs can
+  only be added as nutrition labels, not as product photos.)
 
 **In the app:** scroll down to **Photos** in the product form.
 - Click **+ Add** to upload photos from your computer or phone. You can add

@@ -213,7 +213,10 @@ row is rewritten automatically whenever it no longer matches.
   "N products found" count; status, active and missing-photo filters.
 - **Suppliers**: autocomplete with add, **rename** (updates every product,
   logged in History) and delete (blocked while in use).
-- **Photos**: product and nutrition-label galleries stored in Google Drive,
+- **Planned Launch**: free-text field, shown in the form and as a table column.
+- **Photos**: product and nutrition-label galleries stored in Google Drive
+  (nutrition labels may also be **PDFs** — validated by content, served
+  inline, previewed via Drive's first-page render),
   per-product "Open in Google Drive" links, photo counts per product in the
   table, delete warnings, cached thumbnails, HEIC support via Drive previews.
 - **Shared-login safety** (all staff use one account): the product list

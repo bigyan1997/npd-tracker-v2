@@ -221,6 +221,10 @@ class ProductImageFileView(APIView):
             logger.exception("Couldn't load image %s", image.pk)
             return Response({"detail": DRIVE_UNAVAILABLE}, status=status.HTTP_502_BAD_GATEWAY)
         response = HttpResponse(data, content_type=content_type)
+        if content_type == "application/pdf":
+            # Open in the browser's PDF viewer rather than downloading.
+            name = re.sub(r'[^A-Za-z0-9._-]', "_", image.filename or "nutrition-label.pdf")
+            response["Content-Disposition"] = f'inline; filename="{name}"'
         # URLs carry ?v=<modified time>, so a changed photo gets a new URL.
         response["Cache-Control"] = "private, max-age=604800"
         return response

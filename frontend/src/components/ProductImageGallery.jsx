@@ -7,7 +7,46 @@ import { ConfirmDialog } from './ConfirmDialog'
 // since there's no product to attach them to yet. The parent (ProductModal)
 // is notified of the staged file list via onPendingChange and uploads them
 // itself once the product has been created.
-export function ProductImageGallery({ productId, category, label, images, folderUrl, onPendingChange }) {
+function PdfPlaceholder({ name }) {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center bg-[#fbeae5] p-1 text-center">
+      <span className="text-[13px] font-bold text-[#a13a2c]">PDF</span>
+      {name && <span className="line-clamp-2 break-all text-[9px] text-[#6b6656]">{name}</span>}
+    </div>
+  )
+}
+
+// A tile's preview image; PDFs fall back to a plain "PDF" tile if Drive
+// hasn't rendered a preview of the first page yet.
+function Preview({ img }) {
+  const [failed, setFailed] = useState(false)
+  if (img.isPdf && failed) return <PdfPlaceholder name={img.filename} />
+  return (
+    <>
+      <img
+        src={img.thumb ?? img.image}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="h-full w-full object-cover"
+      />
+      {img.isPdf && (
+        <span className="absolute bottom-0.5 left-0.5 rounded bg-[#a13a2c] px-1 text-[9px] font-bold text-white">PDF</span>
+      )}
+    </>
+  )
+}
+
+export function ProductImageGallery({
+  productId,
+  category,
+  label,
+  hint,
+  accept = 'image/*',
+  images,
+  folderUrl,
+  onPendingChange,
+}) {
   const isPending = !productId
   const [localImages, setLocalImages] = useState(() =>
     (images || []).filter((img) => img.category === category),
@@ -79,6 +118,7 @@ export function ProductImageGallery({ productId, category, label, images, folder
         <label className="text-[11.5px] font-semibold text-[#6b6656]">
           {label}
           {!isPending && <span className="font-normal text-[#9a9484]"> ({localImages.length})</span>}
+          {hint && <span className="ml-1 font-normal text-[#9a9484]">· {hint}</span>}
         </label>
         {folderUrl && (
           <a
@@ -95,7 +135,11 @@ export function ProductImageGallery({ productId, category, label, images, folder
         {isPending
           ? pendingFiles.map((p, i) => (
               <div key={i} className="group relative h-20 w-20 overflow-hidden rounded-md border border-line">
-                <img src={p.previewUrl} alt="" className="h-full w-full object-cover" />
+                {p.file.type === 'application/pdf' ? (
+                  <PdfPlaceholder name={p.file.name} />
+                ) : (
+                  <img src={p.previewUrl} alt="" className="h-full w-full object-cover" />
+                )}
                 <button
                   type="button"
                   title="Remove"
@@ -109,7 +153,7 @@ export function ProductImageGallery({ productId, category, label, images, folder
           : localImages.map((img) => (
               <div key={img.id} className="group relative h-20 w-20 overflow-hidden rounded-md border border-line">
                 <a href={img.image} target="_blank" rel="noopener noreferrer" title={img.filename || 'View full size'}>
-                  <img src={img.thumb ?? img.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  <Preview img={img} />
                 </a>
                 <button
                   type="button"
@@ -125,7 +169,7 @@ export function ProductImageGallery({ productId, category, label, images, folder
           {uploading ? 'Uploading…' : '+ Add'}
           <input
             type="file"
-            accept="image/*"
+            accept={accept}
             multiple
             className="hidden"
             disabled={uploading}
@@ -158,8 +202,8 @@ export function ProductImageGallery({ productId, category, label, images, folder
       {uploadError && <div className="text-[11.5px] font-semibold text-[#a13a2c]">{uploadError}</div>}
       {deleteTarget && (
         <ConfirmDialog
-          title="Delete photo?"
-          message="This photo will also be deleted from Google Drive (it can be restored from the Drive Bin for 30 days). Do you want to continue?"
+          title={deleteTarget.isPdf ? 'Delete PDF?' : 'Delete photo?'}
+          message={`This ${deleteTarget.isPdf ? 'PDF' : 'photo'} will also be deleted from Google Drive (it can be restored from the Drive Bin for 30 days). Do you want to continue?`}
           errorMessage={deleteError}
           confirming={deleting}
           onCancel={() => {

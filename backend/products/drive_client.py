@@ -152,12 +152,13 @@ class DriveClient:
     # --- files ---------------------------------------------------------
 
     def list_images(self, folder_ids):
-        """All non-trashed images directly inside any of `folder_ids`."""
+        """All non-trashed images (and PDFs — nutrition labels often come as
+        PDFs) directly inside any of `folder_ids`."""
         folder_ids = [f for f in folder_ids if f]
         if not folder_ids:
             return []
         parents = " or ".join(f"'{f}' in parents" for f in folder_ids)
-        q = f"({parents}) and trashed = false and mimeType contains 'image/'"
+        q = f"({parents}) and trashed = false and (mimeType contains 'image/' or mimeType = 'application/pdf')"
         files, page_token = [], None
         while True:
             result = self._files.list(

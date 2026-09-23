@@ -1,8 +1,10 @@
 from django.utils import timezone
+from PIL import Image
 from rest_framework import serializers
 
 from . import drive_client, fields_schema, image_files
 from .models import Product, ProductImage
+from .validators import MAX_IMAGE_SIZE_BYTES
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -11,9 +13,14 @@ class ProductImageSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     thumb = serializers.SerializerMethodField()
 
+    isPdf = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductImage
-        fields = ["id", "category", "image", "thumb", "filename", "uploaded_at", "sort_order"]
+        fields = ["id", "category", "image", "thumb", "filename", "isPdf", "uploaded_at", "sort_order"]
+
+    def get_isPdf(self, obj):
+        return obj.mime_type == "application/pdf" or (obj.filename or obj.image.name or "").lower().endswith(".pdf")
 
     def _url(self, obj):
         return f"/api/products/{obj.product_id}/images/{obj.pk}/file/?v={image_files.version(obj)}"
@@ -33,12 +40,33 @@ def photo_folders(product):
 
 
 class ProductImageUploadSerializer(serializers.ModelSerializer):
+    # A plain file field (checked in validate), not ImageField: nutrition
+    # labels can also be PDFs — suppliers often send them that way.
+    image = serializers.FileField()
+
     class Meta:
         model = ProductImage
         fields = ["category", "image"]
-        # The model field is blank=True (Drive-stored photos have no local
-        # file), but an upload must still include one.
-        extra_kwargs = {"image": {"required": True, "allow_null": False}}
+
+    def validate(self, attrs):
+        upload = attrs["image"]
+        if upload.size > MAX_IMAGE_SIZE_BYTES:
+            raise serializers.ValidationError({"image": "Files must be 10MB or smaller."})
+        is_pdf = upload.read(5) == b"%PDF-"  # the file's contents, not its name
+        upload.seek(0)
+        if is_pdf:
+            if attrs["category"] != ProductImage.CATEGORY_NUTRITION:
+                raise serializers.ValidationError({"image": "PDFs can only be added as nutrition labels."})
+            return attrs
+        try:
+            Image.open(upload).verify()
+        except Exception:
+            raise serializers.ValidationError(
+                {"image": "That file isn't a photo (JPG, PNG…) — or, for nutrition labels, a PDF."}
+            )
+        finally:
+            upload.seek(0)
+        return attrs
 
 
 class ProductSerializer(serializers.ModelSerializer):

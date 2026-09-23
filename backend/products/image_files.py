@@ -23,7 +23,8 @@ THUMB_SIZE = 400
 # Formats every browser shows natively. Anything else (iPhone HEIC, TIFF…)
 # or anything that could carry script (SVG) is shown via Drive's rendered
 # preview instead of served raw.
-BROWSER_SAFE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/avif", "image/bmp"}
+BROWSER_SAFE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/avif", "image/bmp", "application/pdf"}
+PDF = "application/pdf"
 
 
 def _cache_dir():
@@ -76,7 +77,9 @@ def thumbnail(image):
     path = _thumb_cache_path(image)
     if path.exists():
         return path.read_bytes(), "image/jpeg"
-    if image.drive_file_id:
+    if image.drive_file_id and _mime(image) == PDF:
+        data = _drive_preview(DriveClient(), image, THUMB_SIZE)  # Drive renders page 1
+    elif image.drive_file_id:
         client = DriveClient()
         try:
             data = _to_jpeg(client.download(image.drive_file_id), THUMB_SIZE)

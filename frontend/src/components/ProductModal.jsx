@@ -235,7 +235,9 @@ export function ProductModal({
                     productId={isEdit ? record.id : null}
                     category="nutrition"
                     folderUrl={photoFolders?.nutrition}
-                    label="Nutrition Label Photos"
+                    label="Nutrition Labels"
+                    hint="photos or PDF"
+                    accept="image/*,application/pdf"
                     images={images}
                     onPendingChange={
                       isEdit ? undefined : (files) => setPendingImages((p) => ({ ...p, nutrition: files }))

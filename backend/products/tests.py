@@ -198,6 +198,35 @@ class DrivePhotoTests(TestCase):
                 self.api.delete(f"/api/products/{self.product.pk}/")
         self.assertTrue(self.drive.items[folder_id]["trashed"])
 
+    def upload_file(self, category, content, name):
+        f = io.BytesIO(content)
+        f.name = name
+        return self.api.post(
+            f"/api/products/{self.product.pk}/images/", {"category": category, "image": f}, format="multipart"
+        )
+
+    def test_pdf_nutrition_label_is_accepted_and_opens_as_pdf(self):
+        pdf = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF"
+        res = self.upload_file("nutrition", pdf, "Label.pdf")
+        self.assertEqual(res.status_code, 201, res.content)
+        self.assertTrue(res.data["isPdf"])
+        image = ProductImage.objects.get()
+        self.assertEqual(self.drive.items[image.drive_file_id]["mimeType"], "application/pdf")
+        full = self.api.get(f"/api/products/{self.product.pk}/images/{image.pk}/file/")
+        self.assertEqual(full["Content-Type"], "application/pdf")
+        self.assertTrue(full["Content-Disposition"].startswith("inline"))
+        self.assertEqual(full.content, pdf)
+
+    def test_pdf_is_refused_as_a_product_photo(self):
+        res = self.upload_file("product", b"%PDF-1.4 whatever", "x.pdf")
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("nutrition", res.data["detail"])
+
+    def test_non_image_non_pdf_is_refused(self):
+        res = self.upload_file("nutrition", b"just some text", "notes.pdf")  # name lies; contents decide
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(ProductImage.objects.exists())
+
     def test_upload_reports_drive_failure(self):
         with mock.patch.object(self.drive, "upload", side_effect=RuntimeError("offline")):
             res = self.upload()
