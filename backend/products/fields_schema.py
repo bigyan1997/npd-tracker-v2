@@ -35,9 +35,9 @@ FIELDS = [
      "required": True, "dashboard": True},
 
     {"key": "sampleReceived", "dashboard": True, "label": "Sample Received", "type": "date", "section": "Sampling & Tasting"},
-    {"key": "dimensions", "label": "Dimensions – L x W x H (cm's)", "type": "text", "section": "Sampling & Tasting",
+    {"key": "dimensions", "dashboard": True, "label": "Dimensions – L x W x H (cm's)", "type": "text", "section": "Sampling & Tasting",
      "placeholder": "e.g. 12 x 8 x 4"},
-    {"key": "weight", "label": "Weight (sample only — NOT NI)", "type": "text", "section": "Sampling & Tasting"},
+    {"key": "weight", "dashboard": True, "label": "Weight (sample only — NOT NI)", "type": "text", "section": "Sampling & Tasting"},
     {"key": "imagesLocation", "label": "Photograph & Save Images — Original Images Location", "type": "text",
      "section": "Sampling & Tasting", "placeholder": "Folder / drive path"},
     {"key": "tastingNotes", "dashboard": True, "label": "Detailed Description After Tasting", "type": "textarea",
@@ -59,11 +59,11 @@ FIELDS = [
     {"key": "supplierAvailableFrom", "dashboard": True, "label": "Supplier Available From Date", "type": "date", "section": "Commercial"},
     {"key": "supplierProductCode", "dashboard": True, "label": "Supplier Product Code", "type": "text", "section": "Commercial"},
     {"key": "cost", "label": "Cost", "type": "number", "section": "Commercial", "step": "0.01", "dashboard": True},
-    {"key": "sellWholesale", "label": "Sell — Wholesale", "type": "number", "section": "Commercial", "step": "0.01"},
-    {"key": "sellACS", "label": "Sell — ACS", "type": "number", "section": "Commercial", "step": "0.01"},
-    {"key": "acpProductCode2", "label": "ACP Product Code2", "type": "text", "section": "Commercial"},
-    {"key": "qblueProductName", "label": "Qblue Product Name", "type": "text", "section": "Commercial"},
-    {"key": "b2bProductName", "label": "B2B Product Name", "type": "text", "section": "Commercial"},
+    {"key": "sellWholesale", "dashboard": True, "label": "Sell — Wholesale", "type": "number", "section": "Commercial", "step": "0.01"},
+    {"key": "sellACS", "dashboard": True, "label": "Sell — ACS", "type": "number", "section": "Commercial", "step": "0.01"},
+    {"key": "acpProductCode2", "dashboard": True, "label": "ACP Product Code2", "type": "text", "section": "Commercial"},
+    {"key": "qblueProductName", "dashboard": True, "label": "Qblue Product Name", "type": "text", "section": "Commercial"},
+    {"key": "b2bProductName", "dashboard": True, "label": "B2B Product Name", "type": "text", "section": "Commercial"},
 
     {"key": "loadedQblue", "label": "Created in ZeaBlue Products and Supplier Price List", "type": "yn",
      "section": "Go-to-Market Checklist", "pipeline": True, "dashboard": True,
@@ -82,7 +82,7 @@ FIELDS = [
      "tableLabel": "In B2B", "chipLabel": "B2B"},
     {"key": "supplierProductName", "dashboard": True, "label": "Supplier product name (if different to ACP product name)",
      "type": "text", "section": "Overview"},
-    {"key": "imagesNote", "label": "Note about images", "type": "text", "section": "Sampling & Tasting"},
+    {"key": "imagesNote", "dashboard": True, "label": "Note about images", "type": "text", "section": "Sampling & Tasting"},
 ]
 
 FIELDS_BY_KEY = {f["key"]: f for f in FIELDS}
