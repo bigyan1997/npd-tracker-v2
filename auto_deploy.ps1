@@ -30,6 +30,9 @@ $lock = Join-Path $logDir 'auto_deploy.lock'
 $healthUrl = 'http://127.0.0.1:8001/api/auth/csrf/'
 
 New-Item -ItemType Directory -Force $logDir | Out-Null
+# The scheduled task starts in C:\Windows\System32 — the plain `git` calls
+# below must run inside the repo.
+Set-Location $root
 
 function Write-Log($message) {
     Add-Content -Path $log -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $message" -Encoding utf8
@@ -163,6 +166,10 @@ try {
     } else {
         Write-Log '  ERROR: app still not responding after rollback - needs a person to look at it.'
     }
+    exit 1
+} catch {
+    # Never fail silently — a run that dies here must say why in the log.
+    Write-Log "ERROR: auto-deploy stopped unexpectedly: $_"
     exit 1
 } finally {
     Remove-Item -Path $lock -Force -ErrorAction SilentlyContinue

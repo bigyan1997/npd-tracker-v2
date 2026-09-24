@@ -5,6 +5,7 @@
 # backend\logs\keep_alive.log.
 
 $root = $PSScriptRoot
+Set-Location $root  # scheduled tasks start in C:\Windows\System32
 $url = 'http://127.0.0.1:8001/api/auth/csrf/'
 $logDir = Join-Path $root 'backend\logs'
 $log = Join-Path $logDir 'keep_alive.log'
