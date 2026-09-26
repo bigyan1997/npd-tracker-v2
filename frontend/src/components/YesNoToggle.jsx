@@ -1,4 +1,4 @@
-export function YesNoToggle({ value, onChange }) {
+export function YesNoToggle({ value, onChange, yesLabel = 'YES', noLabel = 'NO' }) {
   const isY = value === true
   return (
     <div className="flex gap-1.5">
@@ -12,7 +12,7 @@ export function YesNoToggle({ value, onChange }) {
             : 'border-line bg-[#fdfcf9] text-off')
         }
       >
-        YES
+        {yesLabel}
       </button>
       <button
         type="button"
@@ -24,7 +24,7 @@ export function YesNoToggle({ value, onChange }) {
             : 'border-line bg-[#fdfcf9] text-off')
         }
       >
-        NO
+        {noLabel}
       </button>
     </div>
   )

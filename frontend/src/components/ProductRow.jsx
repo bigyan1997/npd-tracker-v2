@@ -128,7 +128,7 @@ function Cell({ field, row }) {
     const isY = raw === true
     return (
       <td className={'px-3 py-2.5 text-[13.5px] font-bold whitespace-nowrap ' + (isY ? 'text-ok' : 'text-[#b03a3a]')}>
-        {isY ? 'Y' : 'N'}
+        {field.key === 'active' ? (isY ? 'Active' : 'Archived') : isY ? 'Y' : 'N'}
       </td>
     )
   }

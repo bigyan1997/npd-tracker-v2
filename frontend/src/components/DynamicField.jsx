@@ -223,6 +223,9 @@ export function DynamicField({
   onDeleteSuggestion,
 }) {
   if (field.type === 'yn') {
+    if (field.key === 'active') {
+      return <YesNoToggle value={value} onChange={onChange} yesLabel="ACTIVE" noLabel="ARCHIVED" />
+    }
     return <YesNoToggle value={value} onChange={onChange} />
   }
   if (field.type === 'select') {
