@@ -18,7 +18,7 @@ Django + DRF backend, **Postgres** (not SQLite/Sheets), Tailwind CSS, Vite + Rea
 
 **In use by staff**, deployed on the office PC (Waitress, port 8001), reachable on the office LAN and from home via Tailscale, and kept always on (see *Infra*). Everyone signs in with **one shared tracker login** — see *Shared-login design* below for what that forced.
 
-Backend verified end-to-end against real Postgres; 19 automated tests (`products/tests.py`) cover Drive photos, supplier rename, edit conflicts and the Sheets header/search logic. Most UI changes have been checked by the user in the browser as they went live, but there's no automated browser testing.
+Backend verified end-to-end against real Postgres; 23 automated tests (`products/tests.py`) cover Drive photos, supplier rename, edit conflicts and the Sheets header/search logic. Most UI changes have been checked by the user in the browser as they went live, but there's no automated browser testing.
 
 ## Architecture decisions that differ from v1 (all deliberate)
 
@@ -52,6 +52,14 @@ Backend verified end-to-end against real Postgres; 19 automated tests (`products
 - **Auto-deploy from GitHub** (`auto_deploy.ps1`, scheduled task "NPD Tracker v2 Auto Deploy", every 5 min, hidden via `auto_deploy.vbs`) so the user can change the code from another computer: push to `main` and the office PC picks it up. Fast-forward only; skips if the office folder has uncommitted changes or unpushed commits; runs the tests (SQLite settings written to `%TEMP%`) and builds the frontend into `frontend/dist-next` *before* touching the live app, then migrates, swaps `dist`, collectstatic, restarts, health-checks, and rolls back on failure. A lock file stops overlapping runs and makes `keep_alive.ps1` stand aside mid-deploy. Tested before going live against a private practice remote: a commit with a failing test was refused and rolled back with the server untouched; a good frontend change was built, swapped in and restarted automatically (~1 min).
 - **Auto-deploy bug fixed (2026-09-25)**: the scheduled task starts in `C:\Windows\System32`, so the script's direct `git` calls ran outside the repo and the run died silently — the user's first pushes from their personal computer were never deployed. The scripts now `Set-Location` to the app folder first, and any unexpected error is written to `auto_deploy.log`. Verified end to end by pushing from a separate clone and letting the real scheduled task deploy it.
 - **Tests must never touch the real Sheet**: the test settings read the real `.env`, and an early test run deleted a real sheet row (restored with `sheets_push_all`). All test classes are now wrapped in `NO_SHEETS`.
+
+## Added 2026-09-27
+
+- **CSV import/export removed** (wasn't needed): the `import/preview` and `import/commit` API actions, `import_parser.py`, `services.import_products`, and the frontend's `ImportModal`/`api/import.js`/client-side CSV-export logic are all gone.
+- **Supplier filter**: an "All suppliers" dropdown in the toolbar (before the status filter) filters the product list server-side via a new `supplier` query param on `GET /api/products/` (exact match, case-insensitive).
+- **Checklist tooltip shows each item's short code**: hovering the Checklist column's chips now prefixes each line with its code (e.g. "NR — Product Nutritionals Received"), matching the letters already on the chips themselves.
+- **Drag-and-drop uploads**: both photo galleries in the add/edit form now accept files dropped directly onto them, not just picked via "+ Add". Dropped files are filtered against the same accept rules as the picker (photos only vs. photos+PDFs for nutrition labels) — drag-and-drop doesn't enforce an `<input>`'s `accept` the way a click does, so that's done by hand client-side.
+- **"Inactive" renamed to "Archived"** for the `active` field, at the user's request (their boss wanted clearer wording than a bare Y/N): the toolbar filter, the table column (now shows the word "Active"/"Archived" instead of "Y"/"N"), and the edit form's toggle (now reads ACTIVE/ARCHIVED instead of generic YES/NO) — the only field with a custom yes/no label; every other `yn` field still shows generic YES/NO.
 
 ## Known gaps / open items
 

@@ -209,13 +209,15 @@ row is rewritten automatically whenever it no longer matches.
   products, full field-level **History** per product, sortable columns,
   "stuck in status" alerts (30+ days in a non-final status).
 - **Search & filters**: search across name, supplier and codes with a live
-  "N products found" count; status, active and missing-photo filters.
+  "N products found" count; supplier, status, active/**archived** and
+  missing-photo filters.
 - **Suppliers**: autocomplete with add, **rename** (updates every product,
   logged in History) and delete (blocked while in use).
 - **Planned Launch**: free-text field, shown in the form and as a table column.
 - **Photos**: product and nutrition-label galleries stored in Google Drive
   (nutrition labels may also be **PDFs** — validated by content, served
-  inline, previewed via Drive's first-page render),
+  inline, previewed via Drive's first-page render), added via the file picker
+  or by **dragging files straight onto the gallery**,
   per-product "Open in Google Drive" links, photo counts per product in the
   table, delete warnings, cached thumbnails, HEIC support via Drive previews.
 - **Shared-login safety** (all staff use one account): the product list

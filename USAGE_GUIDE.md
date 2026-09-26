@@ -40,8 +40,9 @@ top there are coloured boxes showing how many products are in each stage
   capitals don't matter. Under the search box you'll see how many products
   were found (e.g. **3 products found**) — click **Clear** to reset the search
   and all filters.
-- **Filter** — use the dropdown boxes to only show certain statuses, only
-  Active (or Archived) products, or products that are **missing photos**.
+- **Filter** — use the dropdown boxes to only show one supplier, certain
+  statuses, only Active (or Archived) products, or products that are
+  **missing photos**.
 - **Sort** — click a column title (like "Date" or "Cost") to sort the list by
   that column. Click it again to flip the order.
 - **Checklist** — the small coloured boxes show the steps for getting a
@@ -106,8 +107,10 @@ Every product has two kinds of photos:
   only be added as nutrition labels, not as product photos.)
 
 **In the app:** scroll down to **Photos** in the product form.
-- Click **+ Add** to upload photos from your computer or phone. You can add
-  them while creating a new product too — they're uploaded when you save.
+- Click **+ Add** to upload photos from your computer or phone, or just
+  **drag files from your computer and drop them onto the photo area**. You
+  can add them while creating a new product too — they're uploaded when you
+  save.
 - Click a photo to see it full size.
 - Hover over a photo and click the **✕** to delete it. The app will warn you
   that it's deleted from Google Drive too.
