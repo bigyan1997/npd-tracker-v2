@@ -16,6 +16,16 @@ function PdfPlaceholder({ name }) {
   )
 }
 
+// Drag-and-drop doesn't respect an <input>'s `accept` the way the native
+// file picker does, so dropped files are filtered against it by hand.
+function matchesAccept(file, accept) {
+  if (!accept) return true
+  return accept.split(',').some((pattern) => {
+    pattern = pattern.trim()
+    return pattern.endsWith('/*') ? file.type.startsWith(pattern.slice(0, -1)) : file.type === pattern
+  })
+}
+
 // A tile's preview image; PDFs fall back to a plain "PDF" tile if Drive
 // hasn't rendered a preview of the first page yet.
 function Preview({ img }) {
@@ -63,6 +73,7 @@ export function ProductImageGallery({
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const setPending = (next) => {
     setPendingFiles(next)
@@ -95,6 +106,23 @@ export function ProductImageGallery({
 
   const removePending = (index) => {
     setPending(pendingFiles.filter((_, i) => i !== index))
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    if (uploading) return
+    const dropped = Array.from(e.dataTransfer.files || [])
+    const accepted = dropped.filter((f) => matchesAccept(f, accept))
+    if (accepted.length > 0) handleFiles(accepted)
+    if (accepted.length < dropped.length) {
+      const skipped = dropped.length - accepted.length
+      setUploadError(
+        `${skipped} file${skipped === 1 ? '' : 's'} skipped — ${
+          accept.includes('pdf') ? 'only photos and PDFs are allowed here.' : 'only photos are allowed here.'
+        }`,
+      )
+    }
   }
 
   const handleDelete = async () => {
@@ -131,7 +159,25 @@ export function ProductImageGallery({
           </a>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault()
+          if (!uploading) setIsDragOver(true)
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setIsDragOver(false)
+        }}
+        onDrop={handleDrop}
+        className={
+          'relative flex flex-wrap gap-2 rounded-md p-1 -m-1' +
+          (isDragOver ? ' bg-[#eef6f0] outline-2 outline-dashed outline-ok' : '')
+        }
+      >
+        {isDragOver && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md text-[12px] font-semibold text-moss-dark">
+            Drop to add
+          </div>
+        )}
         {isPending
           ? pendingFiles.map((p, i) => (
               <div key={i} className="group relative h-20 w-20 overflow-hidden rounded-md border border-line">
