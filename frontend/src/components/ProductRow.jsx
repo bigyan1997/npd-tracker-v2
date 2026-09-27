@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDateDisplay } from '../lib/dates'
 import { photoCounts } from '../lib/photos'
@@ -7,6 +7,22 @@ import { ConfirmDialog } from './ConfirmDialog'
 function PipelineChips({ row, pipelineFields }) {
   const [tooltipPos, setTooltipPos] = useState(null)
   const wrapRef = useRef(null)
+  const hideTimeoutRef = useRef(null)
+
+  const cancelHide = () => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = null
+    }
+  }
+  // A short delay before hiding, so moving the mouse from the chips down
+  // into the tooltip (which sits a few px below, as a separate portal) has
+  // time to arrive instead of closing the gap counting as "mouse left."
+  const scheduleHide = () => {
+    cancelHide()
+    hideTimeoutRef.current = setTimeout(() => setTooltipPos(null), 150)
+  }
+  useEffect(() => cancelHide, [])
 
   return (
     <td className="px-3 py-2.5 text-[13.5px]">
@@ -14,10 +30,11 @@ function PipelineChips({ row, pipelineFields }) {
         ref={wrapRef}
         className="inline-flex items-center gap-1"
         onMouseEnter={() => {
+          cancelHide()
           const rect = wrapRef.current?.getBoundingClientRect()
           if (rect) setTooltipPos({ top: rect.bottom + 6, left: rect.left })
         }}
-        onMouseLeave={() => setTooltipPos(null)}
+        onMouseLeave={scheduleHide}
       >
         {pipelineFields.map((f) => {
           const isY = row[f.key] === true
@@ -37,6 +54,8 @@ function PipelineChips({ row, pipelineFields }) {
       {tooltipPos &&
         createPortal(
           <div
+            onMouseEnter={cancelHide}
+            onMouseLeave={scheduleHide}
             className="fixed z-50 w-64 rounded-md border border-line bg-white p-3 text-[12.5px] shadow-[0_8px_24px_rgba(0,0,0,.2)]"
             style={{ top: tooltipPos.top, left: tooltipPos.left }}
           >
