@@ -52,8 +52,8 @@ export function Toolbar({
         onChange={(e) => onActiveChange(e.target.value)}
         className="rounded-md border border-line bg-white px-2.5 py-2 text-[13px]"
       >
-        <option value="">Active + Archived</option>
-        <option value="Y">Active only</option>
+        <option value="">Show all</option>
+        <option value="Y">Excluded only</option>
         <option value="N">Archived only</option>
       </select>
       <select

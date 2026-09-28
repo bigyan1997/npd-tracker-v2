@@ -61,6 +61,11 @@ Backend verified end-to-end against real Postgres; 23 automated tests (`products
 - **Drag-and-drop uploads**: both photo galleries in the add/edit form now accept files dropped directly onto them, not just picked via "+ Add". Dropped files are filtered against the same accept rules as the picker (photos only vs. photos+PDFs for nutrition labels) — drag-and-drop doesn't enforce an `<input>`'s `accept` the way a click does, so that's done by hand client-side.
 - **"Inactive" renamed to "Archived"** for the `active` field, at the user's request (their boss wanted clearer wording than a bare Y/N): the toolbar filter, the table column (now shows the word "Active"/"Archived" instead of "Y"/"N"), and the edit form's toggle (now reads ACTIVE/ARCHIVED instead of generic YES/NO) — the only field with a custom yes/no label; every other `yn` field still shows generic YES/NO.
 
+## Added 2026-09-28
+
+- **Checklist tooltip no longer closes when moving the mouse toward it**: it's a separate floating element positioned a few px below the chips, so crossing that gap used to count as "mouse left" and hide it before you could reach it. Now there's a short delay before hiding, cancelled if the mouse enters either the chips or the tooltip.
+- **Another wording pass on the `active` field**, superseding yesterday's "Active"/"Archived": the *true* state (previously "Active") is now **"Excluded"**, and the *false* state (previously "Inactive", briefly "Archived") is back to **"Archived"**. Applies to the toolbar filter, table column text, and the edit form's toggle (now EXCLUDED/ARCHIVED). The toolbar's catch-all option is now **"Show all"** instead of "Active + Archived", matching the "All suppliers"/"All statuses"/"All photos" pattern already used by the other filters. Confirmed directly with the user after the wording initially sounded backwards — this is deliberate, not a mistake, if it looks odd to whoever reads this next.
+
 ## Known gaps / open items
 
 - Restoring a deleted product creates a new record with a new, empty photo folder — its old photos stay in the trashed folder in Drive's Bin (30 days) and have to be moved back by hand.

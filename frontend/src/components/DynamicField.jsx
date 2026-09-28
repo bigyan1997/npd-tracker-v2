@@ -224,7 +224,7 @@ export function DynamicField({
 }) {
   if (field.type === 'yn') {
     if (field.key === 'active') {
-      return <YesNoToggle value={value} onChange={onChange} yesLabel="ACTIVE" noLabel="ARCHIVED" />
+      return <YesNoToggle value={value} onChange={onChange} yesLabel="EXCLUDED" noLabel="ARCHIVED" />
     }
     return <YesNoToggle value={value} onChange={onChange} />
   }

@@ -41,7 +41,7 @@ top there are coloured boxes showing how many products are in each stage
   were found (e.g. **3 products found**) — click **Clear** to reset the search
   and all filters.
 - **Filter** — use the dropdown boxes to only show one supplier, certain
-  statuses, only Active (or Archived) products, or products that are
+  statuses, only Excluded (or Archived) products, or products that are
   **missing photos**.
 - **Sort** — click a column title (like "Date" or "Cost") to sort the list by
   that column. Click it again to flip the order.
