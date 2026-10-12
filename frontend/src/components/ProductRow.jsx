@@ -1,12 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDateDisplay } from '../lib/dates'
 import { photoCounts } from '../lib/photos'
 import { ConfirmDialog } from './ConfirmDialog'
 
 function PipelineChips({ row, pipelineFields }) {
-  const [tooltipPos, setTooltipPos] = useState(null)
+  // anchor: the trigger's rect (set on hover). style: the tooltip's actual
+  // on-screen position, computed after it mounts so we know its real height
+  // (needed to flip it above the chips when there's no room below — e.g.
+  // the last row(s) in the table).
+  const [anchor, setAnchor] = useState(null)
+  const [style, setStyle] = useState(null)
   const wrapRef = useRef(null)
+  const tooltipRef = useRef(null)
   const hideTimeoutRef = useRef(null)
 
   const cancelHide = () => {
@@ -20,9 +26,22 @@ function PipelineChips({ row, pipelineFields }) {
   // time to arrive instead of closing the gap counting as "mouse left."
   const scheduleHide = () => {
     cancelHide()
-    hideTimeoutRef.current = setTimeout(() => setTooltipPos(null), 150)
+    hideTimeoutRef.current = setTimeout(() => {
+      setAnchor(null)
+      setStyle(null)
+    }, 150)
   }
   useEffect(() => cancelHide, [])
+
+  // Runs synchronously before paint, so there's no visible flash: measure
+  // the tooltip where it just mounted, then decide above vs. below.
+  useLayoutEffect(() => {
+    if (!anchor || !tooltipRef.current) return
+    const height = tooltipRef.current.offsetHeight
+    const fitsBelow = anchor.bottom + 6 + height <= window.innerHeight
+    const top = fitsBelow ? anchor.bottom + 6 : anchor.top - height - 6
+    setStyle({ top: Math.max(8, top), left: anchor.left })
+  }, [anchor])
 
   return (
     <td className="px-3 py-2.5 text-[13.5px]">
@@ -32,7 +51,7 @@ function PipelineChips({ row, pipelineFields }) {
         onMouseEnter={() => {
           cancelHide()
           const rect = wrapRef.current?.getBoundingClientRect()
-          if (rect) setTooltipPos({ top: rect.bottom + 6, left: rect.left })
+          if (rect) setAnchor({ top: rect.top, bottom: rect.bottom, left: rect.left })
         }}
         onMouseLeave={scheduleHide}
       >
@@ -51,13 +70,18 @@ function PipelineChips({ row, pipelineFields }) {
           )
         })}
       </div>
-      {tooltipPos &&
+      {anchor &&
         createPortal(
           <div
+            ref={tooltipRef}
             onMouseEnter={cancelHide}
             onMouseLeave={scheduleHide}
             className="fixed z-50 w-64 rounded-md border border-line bg-white p-3 text-[12.5px] shadow-[0_8px_24px_rgba(0,0,0,.2)]"
-            style={{ top: tooltipPos.top, left: tooltipPos.left }}
+            style={{
+              top: style ? style.top : anchor.bottom + 6,
+              left: style ? style.left : anchor.left,
+              visibility: style ? 'visible' : 'hidden',
+            }}
           >
             {pipelineFields.map((f) => {
               const isY = row[f.key] === true
