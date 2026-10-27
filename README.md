@@ -111,10 +111,13 @@ A second scheduled task, "NPD Tracker v2 Auto Deploy" (`auto_deploy.vbs` →
 `auto_deploy.ps1` every 5 minutes (scheduled task "NPD Tracker v2 Auto
 Deploy"). When `main` has new commits it fast-forwards to them, installs new
 packages, **runs the tests and builds the frontend while the live app keeps
-running**, and only if that all passes applies migrations, swaps in the new
-frontend and restarts the server (~a minute end to end). Any failure rolls
-back to the previous commit and leaves the live app untouched; if the app
-doesn't come back after the restart, it rolls back and restarts again.
+running**, and only if that all passes applies migrations, copies the new
+frontend over the old one (robocopy mirror — never delete-and-rename, which
+an editor or scanner holding the folder can block) and restarts the server
+(~a minute end to end). Any failure rolls back to the previous commit and
+leaves the live app untouched; if the app — both the API **and the home
+page** — doesn't come back after the restart, it rolls back and restarts
+again.
 Everything is logged to `backend/logs/auto_deploy.log` on the office PC.
 Open pages then show a "new version available — Reload" banner.
 

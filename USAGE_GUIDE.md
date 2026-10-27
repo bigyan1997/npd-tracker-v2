@@ -161,6 +161,9 @@ updates itself whenever something changes in the tracker.
   (or Tailscale says *Connected* if you're at home), and that the office
   computer running the app is turned on.
 - **Something looks out of date** — press **F5** to reload the page.
+- **The page only says "Frontend build not found"** — the app is running
+  but its pages are missing (this happened once after an update). Tell
+  whoever manages the app; it's a quick fix on the office computer.
 - **"Couldn't reach Google Drive"** — the internet or Google is having a
   moment. Wait a minute and try again.
 - **Still stuck?** — ask whoever manages the app for this team for help.
