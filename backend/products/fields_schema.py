@@ -62,7 +62,7 @@ FIELDS = [
     {"key": "sellWholesale", "dashboard": True, "label": "Sell — Wholesale", "type": "number", "section": "Commercial", "step": "0.01"},
     {"key": "sellACS", "dashboard": True, "label": "Sell — ACS", "type": "number", "section": "Commercial", "step": "0.01"},
     {"key": "acpProductCode2", "dashboard": True, "label": "ACP Product Code2", "type": "text", "section": "Commercial"},
-    {"key": "qblueProductName", "dashboard": True, "label": "Qblue Product Name", "type": "text", "section": "Commercial"},
+    {"key": "qblueProductName", "dashboard": True, "label": "ZeaBlue Product Name", "type": "text", "section": "Commercial"},
     {"key": "b2bProductName", "dashboard": True, "label": "B2B Product Name", "type": "text", "section": "Commercial"},
 
     {"key": "loadedQblue", "label": "Created in ZeaBlue Products and Supplier Price List", "type": "yn",

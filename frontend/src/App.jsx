@@ -66,7 +66,10 @@ function MainApp({ username }) {
   const [search, setSearch] = useState('')
   const [supplier, setSupplier] = useState('')
   const [status, setStatus] = useState('')
-  const [active, setActive] = useState('')
+  // Defaults to "Excluded only" (live/published products), not "Show all" —
+  // Archived and Show all stay available in the dropdown, just not as the
+  // resting state.
+  const [active, setActive] = useState('Y')
   const [photos, setPhotos] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRecord, setEditingRecord] = useState(null)
@@ -88,6 +91,17 @@ function MainApp({ username }) {
     refetchInterval: 20 * 1000,
     // Keep showing the last results while a new search loads, instead of
     // flashing "0 products found" on every keystroke.
+    placeholderData: keepPreviousData,
+  })
+  // Unfiltered by status, separately from productsQuery above — the
+  // StageBar's per-stage counts should always reflect everything, not just
+  // whichever status is currently selected (that would make every other
+  // box read 0 as soon as one stage is clicked).
+  const allProductsQuery = useQuery({
+    queryKey: ['products', { search: '', status: '', active: '', supplier: '' }],
+    queryFn: () => fetchProducts({}),
+    enabled: Boolean(schemaQuery.data),
+    refetchInterval: 20 * 1000,
     placeholderData: keepPreviousData,
   })
 
@@ -113,12 +127,14 @@ function MainApp({ username }) {
     })
   }, [productsQuery.data, schemaQuery.data, sortKey, sortDir, photos])
 
-  const isFiltered = Boolean(search.trim() || supplier || status || active || photos)
+  // "Excluded only" is the resting default now, not a filter someone applied
+  // — only count `active` toward isFiltered once it's moved off that baseline.
+  const isFiltered = Boolean(search.trim() || supplier || status || active !== 'Y' || photos)
   const clearFilters = () => {
     setSearch('')
     setSupplier('')
     setStatus('')
-    setActive('')
+    setActive('Y') // back to the "Excluded only" resting state, not "Show all"
     setPhotos('')
   }
 
@@ -243,7 +259,14 @@ function MainApp({ username }) {
       <UpdateBanner />
       <TopBar username={username} links={linksQuery.data} onLogout={() => logoutMutation.mutate()} />
       <div className="px-7 py-5.5 pb-15">
-        {schemaQuery.data && <StageBar statusOptions={statusOptions} rows={productsQuery.data ?? []} />}
+        {schemaQuery.data && (
+          <StageBar
+            statusOptions={statusOptions}
+            rows={allProductsQuery.data ?? []}
+            activeStatus={status}
+            onSelectStatus={setStatus}
+          />
+        )}
         <Toolbar
           search={search}
           onSearchChange={setSearch}
