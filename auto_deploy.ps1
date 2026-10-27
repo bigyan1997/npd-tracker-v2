@@ -28,6 +28,7 @@ $logDir = Join-Path $backend 'logs'
 $log = Join-Path $logDir 'auto_deploy.log'
 $lock = Join-Path $logDir 'auto_deploy.lock'
 $healthUrl = 'http://127.0.0.1:8001/api/auth/csrf/'
+$homeUrl = 'http://127.0.0.1:8001/'
 
 New-Item -ItemType Directory -Force $logDir | Out-Null
 # The scheduled task starts in C:\Windows\System32 — the plain `git` calls
@@ -56,8 +57,14 @@ function Invoke-Step($label, $command, $workdir = $root) {
     return $code
 }
 
+# Both the API and the page itself must answer — a deploy once left the API
+# up but the page missing ("Frontend build not found") and still reported
+# success.
 function Test-App {
-    try { (Invoke-WebRequest -UseBasicParsing -Uri $healthUrl -TimeoutSec 10).StatusCode -eq 200 } catch { $false }
+    try {
+        (Invoke-WebRequest -UseBasicParsing -Uri $healthUrl -TimeoutSec 10).StatusCode -eq 200 -and
+        (Invoke-WebRequest -UseBasicParsing -Uri $homeUrl -TimeoutSec 10).StatusCode -eq 200
+    } catch { $false }
 }
 
 function Restart-Server {
@@ -77,16 +84,23 @@ function Build-Frontend($changedFiles) {
     if ($changedFiles -match '^frontend/package(-lock)?\.json$') {
         if ((Invoke-Step 'npm ci' 'npm.cmd ci --no-audit --no-fund' $frontend) -ne 0) { return $false }
     }
-    $next = Join-Path $frontend 'dist-next'
-    if (Test-Path $next) { Remove-Item -Recurse -Force $next }
+    # (--emptyOutDir clears any leftover dist-next itself.)
     return (Invoke-Step 'frontend build' 'npm.cmd run build -- --outDir dist-next --emptyOutDir' $frontend) -eq 0
 }
 
+# Mirror the new build over dist with robocopy rather than delete-and-rename:
+# an editor or virus scanner watching the folder can block renaming or
+# deleting a directory ("Access denied"), which once left no dist at all.
+# robocopy only replaces files, and retries ones that are briefly locked.
 function Publish-Frontend {
     $dist = Join-Path $frontend 'dist'
     $next = Join-Path $frontend 'dist-next'
-    if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
-    Rename-Item $next 'dist'
+    & robocopy $next $dist /MIR /R:10 /W:2 /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8 -or -not (Test-Path (Join-Path $dist 'index.html'))) {
+        Write-Log "  FAILED: copying the new frontend into place (robocopy exit $LASTEXITCODE)"
+        return $false
+    }
+    Remove-Item -Recurse -Force $next -ErrorAction SilentlyContinue  # fine if it's locked; rebuilt next time
     return (Invoke-Step 'collectstatic' "`"$python`" manage.py collectstatic --noinput" $backend) -eq 0
 }
 
@@ -118,8 +132,7 @@ try {
     function Undo-Update($reason) {
         Write-Log "  Rolling back to $($old.Substring(0,7)) ($reason). The live app was not changed."
         & git reset --quiet --hard $old
-        $next = Join-Path $frontend 'dist-next'
-        if (Test-Path $next) { Remove-Item -Recurse -Force $next }
+        Remove-Item -Recurse -Force (Join-Path $frontend 'dist-next') -ErrorAction SilentlyContinue
         if ($changed -match '^backend/requirements\.txt$') {
             Invoke-Step 'restore python packages' "`"$python`" -m pip install -q -r requirements.txt" $backend | Out-Null
         }
@@ -151,7 +164,9 @@ try {
     if ((Invoke-Step 'migrate' "`"$python`" manage.py migrate --noinput" $backend) -ne 0) {
         Undo-Update 'database migration failed'; exit 1
     }
-    if ($frontendChanged -and -not (Publish-Frontend)) { Write-Log '  WARNING: collectstatic failed after publishing the new frontend.' }
+    if ($frontendChanged -and -not (Publish-Frontend)) {
+        Write-Log '  WARNING: publishing the new frontend failed - the restart check below will roll back if the page is down.'
+    }
 
     if (Restart-Server) {
         Write-Log "  Deployed $($new.Substring(0,7)) - app is up."
