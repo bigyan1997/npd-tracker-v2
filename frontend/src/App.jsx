@@ -5,12 +5,14 @@ import { uploadProductImage } from './api/images'
 import { fetchLinks } from './api/links'
 import { createProduct, deleteProduct, fetchProduct, fetchProducts, updateProduct } from './api/products'
 import { fetchSchema } from './api/schema'
+import { fetchStaff, getStaffName, setStaffName } from './api/staff'
 import { fetchSuppliers } from './api/suppliers'
 import { PHOTO_FILTERS, photoCounts } from './lib/photos'
 import { DeletedProductsModal } from './components/DeletedProductsModal'
 import { LoginPage } from './components/LoginPage'
 import { ProductModal } from './components/ProductModal'
 import { ProductTable } from './components/ProductTable'
+import { StaffPicker } from './components/StaffPicker'
 import { StageBar } from './components/StageBar'
 import { Toast } from './components/Toast'
 import { Toolbar } from './components/Toolbar'
@@ -31,7 +33,40 @@ function App() {
 
   if (meQuery.isLoading) return null
   if (meQuery.isError || !meQuery.data) return <LoginPage />
-  return <MainApp username={meQuery.data.username} />
+  return <StaffGate />
+}
+
+// Everyone signs in with one shared login, so after sign-in each person picks
+// their name ("Who's working?"); it's remembered on this browser and recorded
+// against every change they make.
+function StaffGate() {
+  const queryClient = useQueryClient()
+  const staffQuery = useQuery({ queryKey: ['staff'], queryFn: fetchStaff })
+  const [staff, setStaff] = useState(getStaffName)
+
+  if (staffQuery.isLoading) return null
+  const names = staffQuery.data ?? []
+  if (!names.includes(staff)) {
+    return (
+      <StaffPicker
+        names={names}
+        onChanged={(list) => queryClient.setQueryData(['staff'], list)}
+        onPick={(name) => {
+          setStaffName(name)
+          setStaff(name)
+        }}
+      />
+    )
+  }
+  return (
+    <MainApp
+      username={staff}
+      onSwitchStaff={() => {
+        setStaffName('')
+        setStaff('')
+      }}
+    />
+  )
 }
 
 function ResultCount({ count, search, filtered, onClear }) {
@@ -59,7 +94,7 @@ function ResultCount({ count, search, filtered, onClear }) {
   )
 }
 
-function MainApp({ username }) {
+function MainApp({ username, onSwitchStaff }) {
   const queryClient = useQueryClient()
   const { toast, show } = useToast()
 
@@ -218,6 +253,7 @@ function MainApp({ username }) {
     mutationFn: logout,
     onSuccess: () => {
       queryClient.setQueryData(['me'], null)
+      setStaffName('')
       queryClient.clear()
     },
   })
@@ -257,7 +293,12 @@ function MainApp({ username }) {
   return (
     <div className="min-h-screen bg-paper">
       <UpdateBanner />
-      <TopBar username={username} links={linksQuery.data} onLogout={() => logoutMutation.mutate()} />
+      <TopBar
+        username={username}
+        links={linksQuery.data}
+        onSwitchStaff={onSwitchStaff}
+        onLogout={() => logoutMutation.mutate()}
+      />
       <div className="px-7 py-5.5 pb-15">
         {schemaQuery.data && (
           <StageBar

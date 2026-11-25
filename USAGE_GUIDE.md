@@ -21,6 +21,17 @@ Click **Show** next to the password box if you want to check what you typed.
 > just remember that other people may be working in the tracker at the same
 > time as you (see *"Someone else changed this product"* below).
 
+**Who's working?** After signing in, pick **your name** from the list. Every
+change you make is then recorded under your name — in **History**, in
+"Last edited by", and in the Google Sheet.
+- **Not on the list?** Type your name in the box at the bottom and click
+  **Add**.
+- **Someone else using this computer?** Click **Switch user** (top right) and
+  pick their name. The tracker remembers the name on each computer, so you
+  only pick it once.
+- **Remove a name** with the **×** next to it. Their past changes keep their
+  name in History.
+
 ## 3. The top bar
 
 - **Google Sheet ↗** — opens the spreadsheet copy of all products (see

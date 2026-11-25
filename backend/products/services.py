@@ -142,14 +142,14 @@ def get_product(pk):
         raise NotFoundError(f"Product {pk} not found.")
 
 
-def create_product(data, user):
+def create_product(data, user, staff=""):
     _validate_required(data)
     _validate_numeric(data)
     supplier = _resolve_supplier(data.get("supplier"))
     if supplier is None:
         raise ValidationError("Supplier is required.")
     now = timezone.now()
-    product = Product(status_changed_at=now, last_edited_by=user, supplier=supplier)
+    product = Product(status_changed_at=now, last_edited_by=user, last_edited_staff=staff, supplier=supplier)
     _apply_fields(product, data)
     product.save()
 
@@ -165,6 +165,7 @@ def create_product(data, user):
             new_value=value,
             action="create",
             changed_by=user,
+            staff_name=staff,
         )
         for key, value in snapshot.items()
         if value != ""
@@ -175,7 +176,7 @@ def create_product(data, user):
     return product
 
 
-def update_product(pk, data, user):
+def update_product(pk, data, user, staff=""):
     product = get_product(pk)
     # Optional: omitted by "Save mine anyway", which deliberately overwrites.
     expected = parse_datetime(str(data.get("expectedUpdatedAt") or ""))
@@ -197,6 +198,7 @@ def update_product(pk, data, user):
     product.supplier = supplier
     _apply_fields(product, data)
     product.last_edited_by = user
+    product.last_edited_staff = staff
     product.save()
 
     after = _snapshot_dict(product)
@@ -211,6 +213,7 @@ def update_product(pk, data, user):
             new_value=new_value,
             action="update",
             changed_by=user,
+            staff_name=staff,
         )
         for key, new_value in after.items()
         if before.get(key, "") != new_value
@@ -222,7 +225,7 @@ def update_product(pk, data, user):
     return product
 
 
-def delete_product(pk, user):
+def delete_product(pk, user, staff=""):
     product = get_product(pk)
     snapshot = _snapshot_dict(product)
     AuditLogEntry.objects.create(
@@ -235,6 +238,7 @@ def delete_product(pk, user):
         new_value="",
         action="delete",
         changed_by=user,
+        staff_name=staff,
     )
     product_id = product.pk
     drive_folder_id = product.drive_folder_id
@@ -251,7 +255,7 @@ def list_recent_deletions(limit=20):
     return AuditLogEntry.objects.filter(action="delete").order_by("-changed_at")[:limit]
 
 
-def restore_product(audit_id, user):
+def restore_product(audit_id, user, staff=""):
     try:
         entry = AuditLogEntry.objects.get(id=audit_id, action="delete")
     except AuditLogEntry.DoesNotExist:
@@ -261,7 +265,7 @@ def restore_product(audit_id, user):
     except (TypeError, ValueError):
         raise ValidationError("This deletion record can't be restored (unreadable snapshot).")
     data = {key: snapshot.get(key, "") for key in fields_schema.FIELD_KEYS}
-    return create_product(data, user)
+    return create_product(data, user, staff)
 
 
 def list_supplier_names():
@@ -276,7 +280,7 @@ def create_supplier(name):
     return list_supplier_names()
 
 
-def rename_supplier(name, new_name, user):
+def rename_supplier(name, new_name, user, staff=""):
     """Rename a supplier everywhere: products point at the Supplier row, so
     they all follow automatically. Each affected product gets a History
     entry and is re-pushed to the Sheets mirror (which stores the name)."""
@@ -313,6 +317,7 @@ def rename_supplier(name, new_name, user):
                 new_value=new_name,
                 action="update",
                 changed_by=user,
+                staff_name=staff,
             )
             for product in products
         ])

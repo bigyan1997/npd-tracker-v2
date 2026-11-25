@@ -21,7 +21,13 @@ class AuditLogEntry(models.Model):
     changed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
     )
+    # Who actually made the change — everyone shares one login (changed_by).
+    staff_name = models.CharField(max_length=100, blank=True, default="")
     changed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    @property
+    def editor(self):
+        return self.staff_name or (self.changed_by.get_username() if self.changed_by else "")
 
     class Meta:
         ordering = ["-changed_at"]

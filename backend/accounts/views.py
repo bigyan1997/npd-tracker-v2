@@ -8,6 +8,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .models import StaffMember, staff_names
+
 
 def _user_payload(user):
     return {"username": user.get_username(), "isStaff": user.is_staff}
@@ -77,3 +79,23 @@ class LogoutView(APIView):
 class MeView(APIView):
     def get(self, request):
         return Response(_user_payload(request.user))
+
+
+class StaffView(APIView):
+    """The "Who's working?" name list. Removing a name never alters past
+    records — they keep the name as it was."""
+
+    def get(self, request):
+        return Response(staff_names())
+
+    def post(self, request):
+        name = " ".join((request.data.get("name") or "").split())
+        if not name or len(name) > 100:
+            return Response({"detail": "Enter a name (up to 100 characters)."}, status=400)
+        if not StaffMember.objects.filter(name__iexact=name).exists():
+            StaffMember.objects.create(name=name)
+        return Response(staff_names(), status=201)
+
+    def delete(self, request):
+        StaffMember.objects.filter(name=(request.data.get("name") or "").strip()).delete()
+        return Response(staff_names())

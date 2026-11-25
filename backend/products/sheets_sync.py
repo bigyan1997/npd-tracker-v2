@@ -72,8 +72,8 @@ def _push_product_sync(product, snapshot):
             client.ensure_tab_and_header()
             _header_ensured = True
         record = _record_from_snapshot(product.pk, snapshot)
-        if product.last_edited_by:
-            record["lastEditedBy"] = product.last_edited_by.get_username()
+        if product.last_edited_staff or product.last_edited_by:
+            record["lastEditedBy"] = product.last_edited_staff or product.last_edited_by.get_username()
         from .models import Product  # local import to avoid a module-load cycle
 
         # The photos column links to the product's Drive folder once it has

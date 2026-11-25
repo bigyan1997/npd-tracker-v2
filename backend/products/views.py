@@ -1,6 +1,7 @@
 import logging
 import mimetypes
 import re
+from urllib.parse import unquote
 
 from django.conf import settings
 from django.http import HttpResponse
@@ -9,6 +10,8 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from accounts.models import staff_names
 
 from . import drive_client, drive_sync, image_files, services
 from .drive_client import DriveClient
@@ -23,6 +26,22 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 DRIVE_UNAVAILABLE = "Couldn't reach Google Drive. Please try again in a moment."
+
+
+def _staff(request):
+    """The person making the change, from the X-Staff-Name header set by the
+    "Who's working?" picker (everyone shares one login). Returns
+    (name, error_response). Once any names exist, a change must name one."""
+    names = staff_names()
+    name = unquote(request.headers.get("X-Staff-Name", "")).strip()  # URL-encoded by the client
+    if not names:
+        return "", None
+    if name not in names:
+        return "", Response(
+            {"detail": "Choose your name (Switch user, top right) before making changes."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    return name, None
 
 
 class ProductViewSet(viewsets.ViewSet):
@@ -43,15 +62,21 @@ class ProductViewSet(viewsets.ViewSet):
         return Response(ProductSerializer(product).data)
 
     def create(self, request):
+        staff, err = _staff(request)
+        if err:
+            return err
         try:
-            product = services.create_product(request.data, request.user)
+            product = services.create_product(request.data, request.user, staff)
         except services.ValidationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, pk=None):
+        staff, err = _staff(request)
+        if err:
+            return err
         try:
-            product = services.update_product(pk, request.data, request.user)
+            product = services.update_product(pk, request.data, request.user, staff)
         except services.ValidationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except services.NotFoundError as exc:
@@ -64,8 +89,11 @@ class ProductViewSet(viewsets.ViewSet):
         return self.update(request, pk=pk)
 
     def destroy(self, request, pk=None):
+        staff, err = _staff(request)
+        if err:
+            return err
         try:
-            services.delete_product(pk, request.user)
+            services.delete_product(pk, request.user, staff)
         except services.NotFoundError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -79,7 +107,7 @@ class ProductViewSet(viewsets.ViewSet):
                 "oldValue": e.old_value,
                 "newValue": e.new_value,
                 "action": e.action,
-                "changedBy": e.changed_by.get_username() if e.changed_by else "",
+                "changedBy": e.editor,
                 "changedAt": e.changed_at.isoformat(),
             }
             for e in entries
@@ -93,7 +121,7 @@ class DeletedProductsView(APIView):
             {
                 "auditId": e.id,
                 "productName": e.product_name_snapshot,
-                "deletedBy": e.changed_by.get_username() if e.changed_by else "",
+                "deletedBy": e.editor,
                 "deletedAt": e.changed_at.isoformat(),
             }
             for e in entries
@@ -102,8 +130,11 @@ class DeletedProductsView(APIView):
 
 class RestoreProductView(APIView):
     def post(self, request, pk=None):
+        staff, err = _staff(request)
+        if err:
+            return err
         try:
-            product = services.restore_product(pk, request.user)
+            product = services.restore_product(pk, request.user, staff)
         except services.NotFoundError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except services.ValidationError as exc:
@@ -255,9 +286,12 @@ class SuppliersView(APIView):
         return Response(names, status=status.HTTP_201_CREATED)
 
     def patch(self, request):
+        staff, err = _staff(request)
+        if err:
+            return err
         try:
             names = services.rename_supplier(
-                request.data.get("name", ""), request.data.get("newName", ""), request.user
+                request.data.get("name", ""), request.data.get("newName", ""), request.user, staff
             )
         except services.ValidationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

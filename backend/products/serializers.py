@@ -88,7 +88,7 @@ class ProductSerializer(serializers.ModelSerializer):
         return photo_folders(obj)
 
     def get_lastEditedBy(self, obj):
-        return obj.last_edited_by.get_username() if obj.last_edited_by else ""
+        return obj.last_edited_staff or (obj.last_edited_by.get_username() if obj.last_edited_by else "")
 
     def get_daysInStatus(self, obj):
         return (timezone.now() - obj.status_changed_at).days

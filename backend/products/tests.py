@@ -396,3 +396,62 @@ class SheetsHeaderTests(TestCase):
         client.ensure_tab_and_header()
         values.clear.assert_not_called()
         values.update.assert_not_called()
+
+
+@NO_SHEETS
+class StaffNameTests(TestCase):
+    """Everyone shares one login; edits are recorded under the name picked
+    in "Who's working?" (sent as the X-Staff-Name header)."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("shared", "shared@example.com", "pw")
+        self.api = APIClient()
+        self.api.force_authenticate(self.user)
+        self.product = Product.objects.create(
+            date=date.today(), product="Bar", supplier=Supplier.objects.create(name="Acme"),
+            status=STATUS_CHOICES[0][0], status_changed_at=timezone.now(),
+        )
+
+    def save(self, staff=None, **changes):
+        body = {"date": str(self.product.date), "product": "Bar", "supplier": "Acme",
+                "status": STATUS_CHOICES[0][0], "active": "Y", **changes}
+        from urllib.parse import quote
+
+        headers = {"HTTP_X_STAFF_NAME": quote(staff)} if staff is not None else {}
+        return self.api.put(f"/api/products/{self.product.pk}/", body, format="json", **headers)
+
+    def test_name_list_add_and_remove(self):
+        self.assertEqual(self.api.post("/api/auth/staff/", {"name": "  Sita   Rai "}, format="json").data, ["Sita Rai"])
+        self.api.post("/api/auth/staff/", {"name": "sita rai"}, format="json")  # no case-duplicate
+        self.assertEqual(self.api.get("/api/auth/staff/").data, ["Sita Rai"])
+        self.assertEqual(self.api.delete("/api/auth/staff/", {"name": "Sita Rai"}, format="json").data, [])
+
+    def test_without_any_names_edits_still_work(self):
+        self.assertEqual(self.save(weight="1kg").status_code, 200)
+
+    def test_edit_must_name_a_listed_person_once_names_exist(self):
+        self.api.post("/api/auth/staff/", {"name": "Sita"}, format="json")
+        self.assertEqual(self.save(weight="1kg").status_code, 400)
+        self.assertEqual(self.save("Nobody", weight="1kg").status_code, 400)
+
+    def test_edit_is_recorded_under_the_staff_name(self):
+        self.api.post("/api/auth/staff/", {"name": "Sita"}, format="json")
+        res = self.save("Sita", weight="1kg")
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.data["lastEditedBy"], "Sita")
+        history = self.api.get(f"/api/products/{self.product.pk}/history/").data
+        self.assertEqual({h["changedBy"] for h in history}, {"Sita"})
+
+    def test_removing_a_name_keeps_their_past_edits(self):
+        self.api.post("/api/auth/staff/", {"name": "Sita"}, format="json")
+        self.save("Sita", weight="1kg")
+        self.api.delete("/api/auth/staff/", {"name": "Sita"}, format="json")
+        history = self.api.get(f"/api/products/{self.product.pk}/history/").data
+        self.assertEqual({h["changedBy"] for h in history}, {"Sita"})
+        self.assertEqual(AuditLogEntry.objects.filter(staff_name="Sita").count(), 1)
+
+    def test_non_english_name(self):
+        self.api.post("/api/auth/staff/", {"name": "Sītā Rāī"}, format="json")
+        res = self.save("Sītā Rāī", weight="2kg")
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.data["lastEditedBy"], "Sītā Rāī")

@@ -223,6 +223,10 @@ row is rewritten automatically whenever it no longer matches.
   or by **dragging files straight onto the gallery**,
   per-product "Open in Google Drive" links, photo counts per product in the
   table, delete warnings, cached thumbnails, HEIC support via Drive previews.
+- **Staff names** ("Who's working?"): after sign-in each person picks their
+  name (managed in-app); it's sent as `X-Staff-Name` and recorded on every
+  change (History, Last Edited By, the Sheet). Once any names exist, changes
+  without a listed name are refused.
 - **Shared-login safety** (all staff use one account): the product list
   auto-refreshes every 20 s; a save is refused (HTTP 409, "Load latest
   version" / "Save mine anyway") if someone else saved that product since it

@@ -1,7 +1,7 @@
 const linkClass =
   'rounded-md border border-[#5c7669] bg-transparent px-3.5 py-2 text-[13px] font-semibold text-[#f4f2e9] no-underline hover:bg-[#4a6558]'
 
-export function TopBar({ username, links, onLogout }) {
+export function TopBar({ username, links, onSwitchStaff, onLogout }) {
   return (
     <div className="flex items-center justify-between border-b-[3px] border-clay bg-moss-dark px-7 py-4 text-[#f4f2e9]">
       <div>
@@ -25,6 +25,14 @@ export function TopBar({ username, links, onLogout }) {
           <span className="h-1.5 w-1.5 rounded-full bg-ok" />
           {username}
         </span>
+        {onSwitchStaff && (
+          <button
+            onClick={onSwitchStaff}
+            className="rounded-md border border-[#5c7669] bg-transparent px-3.5 py-2 text-[13px] font-semibold text-[#f4f2e9] hover:bg-[#4a6558]"
+          >
+            Switch user
+          </button>
+        )}
         <button
           onClick={onLogout}
           className="rounded-md border border-[#5c7669] bg-transparent px-3.5 py-2 text-[13px] font-semibold text-[#f4f2e9] hover:bg-[#4a6558]"

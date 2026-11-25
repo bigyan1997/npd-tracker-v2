@@ -17,6 +17,7 @@ Postgres as source of truth, one-way Postgres → Sheets mirror, photos in Googl
 - Mirror sheet: (ID in DEPLOYMENT_NOTES.md), tab `NPD` — service account (email in DEPLOYMENT_NOTES.md), key in `backend/secrets/service-account.json`
 - Two admin logins: `achievecafeprovisions@gmail.com` (password in DEPLOYMENT_NOTES.md) and `bigyan@achievewholesale.com.au` (password in DEPLOYMENT_NOTES.md)
 - Login API `/api/auth/login/` expects an `email` field, not `username`
+- **Staff names (2026-11-25):** "Who's working?" picker after sign-in records each person's name on every change (History, Last Edited By, Sheet). The user wrote it on their personal PC but pushed it to the OLD v1 repo `bigyan1997/NPD-Tracker` (their local folder is a v1 clone) — I ported it to v2. If the user says a push "isn't live", check `api.github.com/users/bigyan1997/repos?sort=pushed` for which repo it went to. Their personal PC needs a fresh v2 clone.
 - Staff all share one tracker login (2026-09-24). So: product list auto-refreshes every 20s, saves send `expectedUpdatedAt` (409 on conflict → "Load latest"/"Save mine anyway"), and a banner offers reload after deploys. History therefore can't show who changed what — I suggested per-person logins; user chose not to for now.
 - 44 suppliers; products are being added/changed by staff daily now (6 as of 2026-09-24 09:00)
 - User removed CSV import/export and added a supplier filter (2026-09-24, pushed from their own PC).

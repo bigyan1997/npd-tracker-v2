@@ -75,6 +75,8 @@ class Product(models.Model):
     last_edited_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
     )
+    # Staff name picked in the app ("Who's working?") — shown as Last Edited By.
+    last_edited_staff = models.CharField(max_length=100, blank=True)
     sheet_row_synced_at = models.DateTimeField(null=True, blank=True)
 
     # Google Drive photo folders (see drive_client.py) — the product's own
